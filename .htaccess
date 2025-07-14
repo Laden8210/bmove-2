@@ -1,0 +1,26 @@
+RewriteEngine On
+
+# Allow access to view/error folder for error pages
+RewriteCond %{REQUEST_URI} !^/exam/view/error/
+RewriteRule ^(config|vendor|view)(/|$) - [F,L]
+
+# Block sensitive files directly
+<FilesMatch "^(\.env|composer\.json|composer\.lock|database\.sql|\.htaccess)$">
+    Require all denied
+</FilesMatch>
+
+# Block direct access to /controller/ via URL unless coming from your site (local + live)
+# RewriteCond %{HTTP_REFERER} !^http://localhost/exam/ [NC]
+# RewriteCond %{HTTP_REFERER} !^https://exam-management\.nasa-ph\.com/ [NC]
+# RewriteRule ^controller(/|$) - [F,L]
+
+# Route everything else to index.php if not a real file or directory
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^(.*)$ index.php?request=$1 [QSA,L]
+
+# Error pages
+ErrorDocument 404 /exam/view/error/404.php
+ErrorDocument 403 /exam/view/error/403.php
+ErrorDocument 500 /exam/view/error/500.php
+ErrorDocument 401 /exam/view/error/401.php
