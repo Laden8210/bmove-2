@@ -596,7 +596,7 @@ $stmt->close();
                           
                                     <option value="gcash">GCash</option>
                                     <option value="maya">Maya</option>
-                                    <option value="cod">Cash on Delivery (COD)</option>
+                                    <option value="cash">Cash on Delivery (COD)</option>
                                 </select>
                                 <div class="invalid-feedback">Please select a payment method</div>
                             </div>

@@ -47,7 +47,7 @@ foreach ($requiredFields as $field) {
 
 // update payment  status of  payment 
 
-$updatePayment = $conn->prepare("UPDATE payments SET payment_status = 'paid' WHERE booking_id = ? AND payment_status = 'confirmed'");
+$updatePayment = $conn->prepare("UPDATE payments SET payment_status = 'paid' WHERE booking_id = ?");
 $updatePayment->bind_param('s', $input['booking_id']);
 
 if (!$updatePayment->execute()) {
