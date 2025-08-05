@@ -203,7 +203,8 @@ $result = $conn->query($sql);
                             data-bs-toggle="modal"
                             data-bs-target="#statusModal"
                             title="Update Status"
-                            data-id="<?php echo $row['booking_id']; ?>">
+                            data-id="<?php echo $row['booking_id']; ?>"
+                            onclick="document.getElementById('statusBookingId').value = this.dataset.id;">
                             <i class="bi bi-pencil-square"></i>
                           </button>
                         </td>

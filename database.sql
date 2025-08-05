@@ -92,3 +92,16 @@ CREATE TABLE payments (
     FOREIGN KEY (created_by) REFERENCES users(uid) ON DELETE SET NULL ON UPDATE CASCADE,
     FOREIGN KEY (updated_by) REFERENCES users(uid) ON DELETE SET NULL ON UPDATE CASCADE
 );
+
+
+create table comments (
+    comment_id char(36) primary key,
+    booking_id char(36) not null,
+    user_id char(36) not null,
+    comment text not null,
+    comment_rating int check (comment_rating >= 1 and comment_rating <= 5),
+    created_at timestamp default current_timestamp,
+
+    foreign key (booking_id) references bookings(booking_id) on delete cascade on update cascade,
+    foreign key (user_id) references users(uid) on delete cascade on update cascade
+);

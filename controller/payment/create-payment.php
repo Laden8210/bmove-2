@@ -43,7 +43,7 @@ foreach ($requiredFields as $field) {
     }
 }
 
-// check if already paid
+
 
 $checkPayment = $conn->prepare("SELECT payment_id FROM payments WHERE booking_id = ? AND payment_status = 'paid'");
 

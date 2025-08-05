@@ -211,6 +211,11 @@ $bookings = $result->fetch_all(MYSQLI_ASSOC);
                             <div class="mb-3">
                                 <h6 class="text-muted"><?= htmlspecialchars($booking['vehicle_name']) ?></h6>
                                 <div class="text-primary">₱<?= htmlspecialchars(number_format($booking['total_price'], 2)) ?></div>
+
+                                <small class="text-muted">
+                                    <?= htmlspecialchars(ucfirst($booking['payment_method'])) ?>
+                                </small>
+
                             </div>
 
                             <ul class="list-unstyled">
@@ -234,9 +239,6 @@ $bookings = $result->fetch_all(MYSQLI_ASSOC);
                         </div>
 
                         <div class="card-footer bg-transparent d-flex justify-content-between align-items-center">
-                            <small class="text-muted">
-                                <?= htmlspecialchars(ucfirst($booking['payment_method'])) ?>
-                            </small>
 
                             <div>
                                 <button class="btn btn-sm btn-outline-primary view-details"
@@ -263,13 +265,19 @@ $bookings = $result->fetch_all(MYSQLI_ASSOC);
                                     View Details
                                 </button>
 
-
-
                                 <button class="btn btn-sm btn-outline-success"
                                     onclick="getPayment('<?= $booking['booking_id'] ?>')"
                                     data-bs-toggle="modal" data-bs-target="#paymentModal">
                                     View Payment
                                 </button>
+
+                                <button class="btn btn-sm btn-outline-secondary"
+                                    data-bs-toggle="modal" data-bs-target="#commentModal"
+                                    data-booking-id="<?= htmlspecialchars($booking['booking_id']) ?>"
+                                    onclick="viewComments('<?= htmlspecialchars($booking['booking_id']) ?>')">
+                                    <i class="fa fa-comment" aria-hidden="true"></i> Add Comment
+                                </button>
+
                             </div>
 
                         </div>
@@ -283,6 +291,54 @@ $bookings = $result->fetch_all(MYSQLI_ASSOC);
             No bookings found.
         </div>
     <?php endif; ?>
+</div>
+
+<!-- Comment Modal -->
+
+<div class="modal fade" id="commentModal" tabindex="-1" aria-labelledby="commentModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="commentModalLabel">Add Comment</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="commentForm" action="controller/comment/add-comment.php" method="POST">
+                <div class="modal-body">
+
+                    <div id="commentContainer">
+                        <h6 class="mb-3">All Comments</h6>
+                        <div id="commentList" class="list-group">
+                            <!-- Comments will be dynamically inserted here -->
+                        </div>
+                    </div>
+
+                    <input type="hidden" id="bookingId" value="" name="booking_id">
+                    <div class="mb-3">
+                        <label for="commentText" class="form-label">Comment</label>
+                        <textarea class="form-control" id="commentText" rows="3" required name="comment_text"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label for="commentRating" class="form-label">Rating</label>
+                        <select class="form-select" id="commentRating" required name="comment_rating">
+                            <option value="" disabled selected>Select Rating</option>
+                            <option value="1">1 Star</option>
+                            <option value="2">2 Stars</option>
+                            <option value="3">3 Stars</option>
+                            <option value="4">4 Stars</option>
+                            <option value="5">5 Stars</option>
+                        </select>
+                    </div>
+
+
+
+                </div>
+                <div class="modal-footer">
+                    <button type="submit" class="btn btn-primary" id="submitCommentBtn">Submit Comment</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </form>
+        </div>
+    </div>
 </div>
 
 <!-- Booking Details Modal -->
@@ -414,7 +470,64 @@ $bookings = $result->fetch_all(MYSQLI_ASSOC);
 
 
 <script>
+    window.viewComments = bookingId => {
+        const commentContainer = document.getElementById('commentContainer');
+        const commentList = document.getElementById('commentList');
+        const commentForm = document.getElementById('commentForm');
+        const bookingIdInput = document.getElementById('bookingId');
+        bookingIdInput.value = bookingId;
+
+        // Clear previous comments
+        commentList.innerHTML = '';
+
+        // Fetch comments for the booking
+        new GetRequest({
+            getUrl: "controller/comment/get-comments.php",
+            params: {
+                booking_id: bookingId
+            },
+            callback: (err, data) => {
+                if (err) {
+                    showErrorToast("Failed to load comments");
+                    console.error("Comment fetch error:", err);
+                    return;
+                }
+
+                // Populate comments
+                data.forEach(comment => {
+                    const listItem = document.createElement('div');
+                    listItem.className = 'list-group-item d-flex justify-content-between align-items-center';
+                    listItem.innerHTML = `
+                        <div>
+                            <strong>${comment.user_name}</strong> (${comment.comment_rating} stars)
+                            <p class="mb-0">${comment.comment}</p>
+                        </div>
+                        <small class="text-muted">${new Date(comment.created_at).toLocaleString()}</small>
+                    `;
+                    commentList.appendChild(listItem);
+                });
+                // Show comment container if there are comments
+                if (data.length > 0) {
+                    commentContainer.style.display = 'block';
+                } else {
+                    commentContainer.style.display = 'none';
+                }
+            }
+        }).send();
+
+    };
+
+    const createRequest = new CreateRequest({
+        formSelector: "#commentForm",
+        submitButtonSelector: "#submitCommentBtn",
+        callback: (err, res) => err ? console.error("Form submission error:", err) : console.log(
+            "Form submitted successfully:", res)
+    });
+
+
     // Updated payment handling function
+
+
     window.getPayment = paymentId => {
         new GetRequest({
             getUrl: "controller/payment/get-payment.php",
@@ -626,13 +739,13 @@ $bookings = $result->fetch_all(MYSQLI_ASSOC);
             document.getElementById('modalVehicleYear').textContent = bookingData.vehicleYear;
 
             setTimeout(() => {
-            
+
                 showRoute(bookingData.pickupLat, bookingData.pickupLng, bookingData.dropoffLat, bookingData.dropoffLng);
-            }, 300); 
+            }, 300);
         });
 
         modal.addEventListener('hidden.bs.modal', () => {
-          
+
             if (routeControl) {
                 routeMap.removeControl(routeControl);
                 routeControl = null;

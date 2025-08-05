@@ -13,6 +13,8 @@ function getStatusColor($status)
             return 'primary';
         case 'in_progress':
             return 'warning';
+        case 'in_transit':
+            return 'info';
         default:
             return 'info';
     }
@@ -32,7 +34,7 @@ $sql = "SELECT
         FROM bookings b
         LEFT JOIN vehicles v ON b.vehicle_id = v.vehicleid
         LEFT JOIN users u ON v.driver_uid = u.uid
-        WHERE (b.status = 'confirmed' or b.status = 'completed') AND v.driver_uid = ?";
+        WHERE (b.status = 'confirmed' or b.status = 'completed' or b.status = 'in_transit') AND v.driver_uid = ?";
 $stmt = $conn->prepare($sql);
 $stmt->bind_param("s", $current_uid);
 $stmt->execute();
@@ -176,10 +178,7 @@ $bookings = $result->fetch_all(MYSQLI_ASSOC);
                 <h5 class="modal-title" id="bookingModalLabel">Booking Details</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <form 
-
-             
-            method="POST" id="update-user">
+            <form method="POST" id="update-user">
                 <input type="hidden" name="booking_id" id="bookingId" value="">
                 <div class="modal-body">
                     <!-- Booking & Vehicle Info -->
@@ -238,9 +237,9 @@ $bookings = $result->fetch_all(MYSQLI_ASSOC);
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                    <button type="button" class="btn btn-primary" id="btnStartTrip" onclick="startTrip('<?= $booking['booking_id'] ?>')">Start Trip</button>
+                    <button type="button" class="btn btn-primary" id="btnStartTrip"  data-booking-id="">Start Trip</button>
 
-                    <button type="button" class="btn btn-primary" id="btnStartTrip" onclick="completeTrip('<?= $booking['booking_id'] ?>')">Complete</button>
+                    <button type="button" class="btn btn-primary" id="btnCompleteTrip" onclick="completeTrip()" data-booking-id="">Complete</button>
                 </div>
             </form>
         </div>
@@ -456,34 +455,6 @@ $bookings = $result->fetch_all(MYSQLI_ASSOC);
         updateRequest.send();
     };
 
-    window.completeTrip = bookingId => {
-        const updateRequest = new UpdateRequest({
-            formSelector: '#update-user',
-            updateUrl: 'controller/booking/complete-trip.php',
-            redirectUrl: 'driver-dashboard',
-            updateData: null,
-            callback: function(error, data) {
-
-            },
-            promptMessage: 'Are you sure you want to complete this trip?',
-        });
-        updateRequest.send();
-    };
-
-    window.startTrip = bookingId => {
-        console.log("Starting trip for booking ID:", bookingId);
-        const updateRequest = new UpdateRequest({
-            formSelector: '#update-user',
-            updateUrl: 'controller/booking/start-trip.php',
-            redirectUrl: 'driver-dashboard',
-            updateData: null,
-            callback: function(error, data) {
-                
-            },
-            promptMessage: 'Are you sure you want to start this trip?',
-        });
-        updateRequest.send();
-    };
 
     $('#update-user').on('submit', function(e) {
         e.preventDefault();
@@ -612,8 +583,41 @@ $bookings = $result->fetch_all(MYSQLI_ASSOC);
             padding: [50, 50]
         });
     }
+
+    
+    window.completeTrip = bookingId => {
+        const updateRequest = new UpdateRequest({
+            formSelector: '#update-user',
+            updateUrl: 'controller/booking/complete-trip.php',
+            redirectUrl: 'driver-dashboard',
+            updateData: null,
+            callback: function(error, data) {
+
+            },
+            promptMessage: 'Are you sure you want to complete this trip?',
+        });
+        updateRequest.send();
+    };
+
+    window.startTrip = bookingId => {
+
+        const updateRequest = new UpdateRequest({
+            formSelector: '#update-user',
+            updateUrl: 'controller/booking/start-trip.php',
+            redirectUrl: 'driver-dashboard',
+            updateData: null,
+            callback: function(error, data) {
+                
+            },
+            promptMessage: 'Are you sure you want to start this trip?',
+        });
+        updateRequest.send();
+    };
     // Modal event handlers
     document.addEventListener('DOMContentLoaded', () => {
+
+        
+
         const modal = document.getElementById('bookingModal');
 
         modal.addEventListener('show.bs.modal', (event) => {
@@ -635,7 +639,8 @@ $bookings = $result->fetch_all(MYSQLI_ASSOC);
                 vehicleType: button.dataset.vehicleType,
                 vehicleModel: button.dataset.vehicleModel,
                 vehicleYear: button.dataset.vehicleYear,
-                customerName: button.dataset.customerName
+                customerName: button.dataset.customerName,
+                bookingId: button.dataset.bookingId
             };
 
             // Update modal content
@@ -651,6 +656,16 @@ $bookings = $result->fetch_all(MYSQLI_ASSOC);
             document.getElementById('modalVehicleType').textContent = bookingData.vehicleType;
             document.getElementById('modalVehicleModel').textContent = bookingData.vehicleModel;
             document.getElementById('modalVehicleYear').textContent = bookingData.vehicleYear;
+            console.log(bookingData);
+            // Hidden input for booking ID
+            document.getElementById('bookingId').value = bookingData.bookingId;
+            // button to start trip
+            const btnStartTrip = document.getElementById('btnStartTrip');
+            btnStartTrip.onclick = () => startTrip(bookingData.bookingId);
+
+            // button to complete trip
+            const btnCompleteTrip = document.getElementById('btnCompleteTrip');
+            btnCompleteTrip.onclick = () => completeTrip(bookingData.bookingId);
 
             // button 
             const statusBadge = document.getElementById('modalStatus');

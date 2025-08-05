@@ -106,7 +106,7 @@ if ($payment['payment_status'] === 'pending') {
 }
 
 
-$status = 'in-transit';
+$status = 'in_transit';
 
 
 $stmt = $conn->prepare("UPDATE bookings SET status = ? WHERE booking_id = ?");

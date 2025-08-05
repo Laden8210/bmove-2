@@ -98,6 +98,10 @@
                       <button type="button" class="btn btn-sm btn-danger" title="Delete" onclick="deleteQuestion(\'' . htmlspecialchars($row['vehicleid'], ENT_QUOTES) . '\') ">
                         <i class="bi bi-trash"></i>
                       </button>
+
+                      <button type="button" class="btn btn-sm btn-info" title="View Comments" onclick="viewComments(\'' . htmlspecialchars($row['vehicleid'], ENT_QUOTES) . '\')" data-bs-toggle="modal" data-bs-target="#viewCommentsModal">
+                        <i class="bi bi-chat-dots"></i>
+                      </button>
                     </td>';
                       echo "</tr>";
                     }
@@ -115,6 +119,24 @@
       </div>
     </div>
   </section>
+
+  <!-- View Comments Modal -->
+  <div class="modal fade" id="viewCommentsModal" tabindex="-1" aria-labelledby="viewCommentsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="viewCommentsModalLabel">Comments</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <div id="commentsList" class="list-group">
+            <!-- Comments will be dynamically loaded here -->
+          </div>
+  
+        </div>
+      </div>
+    </div>
+  </div>
 
   <!-- Add Truck Modal -->
   <div class="modal fade" id="addTruckModal" tabindex="-1" aria-labelledby="addTruckModalLabel" aria-hidden="true">
@@ -381,6 +403,57 @@
     e.preventDefault();
     updateRequest.send();
   });
+
+  // view comments function
+  window.viewComments = vehicleId => {
+    const commentContainer = document.getElementById('commentsList');
+
+    commentContainer.innerHTML = '';
+
+    new GetRequest({
+      getUrl: "controller/comment/get-comment-by-vehicle.php",
+      params: {
+        vehicle_id: vehicleId
+      },
+      callback: (err, data) => {
+        if (err) {
+          showErrorToast("Failed to load comments");
+          console.error("Comment fetch error:", err);
+          return;
+        }
+
+        // Populate comments
+        if (!data.length) {
+          commentContainer.innerHTML = '<div class="text-center text-muted py-4">No comments found for this vehicle.</div>';
+        } else {
+          data.forEach(comment => {
+            const listItem = document.createElement('div');
+            listItem.className = 'list-group-item py-3';
+            listItem.innerHTML = `
+              <div class="d-flex justify-content-between align-items-start">
+          <div>
+            <div class="fw-semibold mb-1">
+              <i class="bi bi-person-circle me-1"></i>
+              ${comment.user_name || 'Anonymous'}
+            </div>
+            <div class="mb-1">
+              ${'<span class="text-warning">' + '★'.repeat(comment.comment_rating) + '</span>'}
+              ${'<span class="text-muted">' + '★'.repeat(5 - comment.comment_rating) + '</span>'}
+            </div>
+            <div class="text-body">${comment.comment}</div>
+          </div>
+          <div class="text-end">
+            <small class="text-muted">${new Date(comment.created_at).toLocaleString()}</small>
+          </div>
+              </div>
+            `;
+            commentContainer.appendChild(listItem);
+          });
+        }
+      
+      }
+    }).send();
+  };
 
   const updateStatusRequest = new UpdateRequest({
     formSelector: '#update-status-form',

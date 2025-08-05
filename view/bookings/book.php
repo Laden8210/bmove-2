@@ -22,6 +22,21 @@ if (!$selectedVehicle) {
 $selectedVehicle['baseprice'] = $selectedVehicle['baseprice'] ?? 0;
 $selectedVehicle['rateperkm'] = $selectedVehicle['rateperkm'] ?? 0;
 $selectedVehicle['totalcapacitykg'] = $selectedVehicle['totalcapacitykg'] ?? 0;
+
+// retrieve all comments for the selected vehicle
+
+$stmt = $conn->prepare("SELECT comments.*, users.full_name AS user_name FROM comments
+ JOIN users ON comments.user_id = users.uid
+ JOIN bookings ON comments.booking_id = bookings.booking_id
+ WHERE bookings.vehicle_id = ?");
+$stmt->bind_param("s", $selectedVehicleId);
+$stmt->execute();
+$result = $stmt->get_result();
+$comments = $result->fetch_all(MYSQLI_ASSOC);
+$stmt->close();
+
+
+
 ?>
 
 <!-- Leaflet CSS -->
@@ -449,6 +464,36 @@ $selectedVehicle['totalcapacitykg'] = $selectedVehicle['totalcapacitykg'] ?? 0;
                                 </div>
                             </div>
                         </div>
+
+
+                        <h3 class="section-title mt-4"><i class="bi bi-chat-dots me-2"></i>Comments</h3>
+                        <div id="comments-container">
+                            <?php if (!empty($comments)): ?>
+                                <?php foreach ($comments as $comment): ?>
+                                    <div class="comment mb-3 p-3 rounded shadow-sm bg-light">
+                                        <div class="d-flex align-items-center mb-2">
+                                            <span class="fw-semibold me-2"><?= htmlspecialchars($comment['user_name']) ?></span>
+                                            <span class="badge bg-warning text-dark me-2">
+                                                <?php for ($i = 1; $i <= 5; $i++): ?>
+                                                    <?php if ($i <= (int)$comment['comment_rating']): ?>
+                                                        <i class="bi bi-star-fill"></i>
+                                                    <?php else: ?>
+                                                        <i class="bi bi-star"></i>
+                                                    <?php endif; ?>
+                                                <?php endfor; ?>
+                                            </span>
+                                            <small class="text-muted ms-auto">
+                                                <?= isset($comment['created_at']) ? date('M d, Y', strtotime($comment['created_at'])) : '' ?>
+                                            </small>
+                                        </div>
+                                        <p class="mb-0"><?= nl2br(htmlspecialchars($comment['comment'])) ?></p>
+                                    </div>
+                                <?php endforeach; ?>
+                            <?php else: ?>
+                                <p class="text-muted fst-italic">No comments yet for this vehicle.</p>
+                            <?php endif; ?>
+                        </div>
+
                     </div>
                 </div>
 
