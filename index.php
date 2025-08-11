@@ -110,7 +110,7 @@ try {
         }
     }
 
-    // Restrict access to role-specific routes
+
     $roleRoutes = [
         'customer' => ['customer-dashboard', 'book', 'create-booking', ''],
         'driver' => ['driver-dashboard'],
