@@ -38,7 +38,7 @@ if (!isset($_SESSION['auth']['user_id'])) {
 }
 
 
-$stmt = $conn->prepare("SELECT * FROM users WHERE uid = ?");
+$stmt = $conn->prepare("SELECT * FROM users WHERE uid = ? and is_deleted = 0");
 $stmt->bind_param("s", $uid);
 $stmt->execute();
 $result = $stmt->get_result();

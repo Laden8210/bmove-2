@@ -8,17 +8,74 @@
         </div>
         <div class="row mt-5">
             <?php
-
-            $query = "SELECT vehicleid, name, baseprice, type, model, year, platenumber, totalcapacitykg, status, rateperkm, date_added FROM vehicles WHERE status = 'available' ORDER BY date_added DESC LIMIT 3";
+            $query = "SELECT 
+                v.vehicleid, 
+                v.name, 
+                v.baseprice, 
+                v.type, 
+                v.model, 
+                v.year, 
+                v.platenumber, 
+                v.totalcapacitykg, 
+                v.status, 
+                v.rateperkm, 
+                v.date_added,
+                v.image_path,  
+                COALESCE(AVG(c.comment_rating), 0) as average_rating,
+                COUNT(c.comment_id) as total_ratings
+            FROM vehicles v
+            LEFT JOIN bookings b ON v.vehicleid = b.vehicle_id
+            LEFT JOIN comments c ON b.booking_id = c.booking_id
+            WHERE v.status = 'available' 
+            GROUP BY v.vehicleid
+            ORDER BY v.date_added DESC 
+            ";
+            
             $result = $conn->query($query);
 
             if ($result && $result->num_rows > 0):
                 while ($car = $result->fetch_assoc()): 
+                    $average_rating = round($car['average_rating'], 1);
+                    $total_ratings = $car['total_ratings'];
+                    $image_path =  "upload/vehicles/".$car['image_path'] ?: 'uploads/default-vehicle.jpg'; 
             ?>
                     <div class="col-md-4 mb-4">
                         <div class="card h-100">
+                            <!-- Vehicle Image -->
+                            <img src="<?= htmlspecialchars($image_path) ?>" 
+                                 alt="<?= htmlspecialchars($car['name']) ?>" 
+                                 class="card-img-top" 
+                                 style="height: 200px; object-fit: cover;"
+                                 onerror="this.src='uploads/default-vehicle.jpg'">
+                            
                             <div class="card-body">
                                 <h5 class="card-title"><?= htmlspecialchars($car['name']) ?></h5>
+                                
+                                <!-- Rating Display -->
+                                <div class="mb-3">
+                                    <div class="d-flex align-items-center mb-1">
+                                        <div class="star-rating me-2">
+                                            <?php
+                                            $full_stars = floor($average_rating);
+                                            $has_half_star = ($average_rating - $full_stars) >= 0.5;
+                                            
+                                            for ($i = 1; $i <= 5; $i++):
+                                                if ($i <= $full_stars):
+                                                    echo '<i class="bi bi-star-fill text-warning"></i>';
+                                                elseif ($has_half_star && $i == $full_stars + 1):
+                                                    echo '<i class="bi bi-star-half text-warning"></i>';
+                                                else:
+                                                    echo '<i class="bi bi-star text-warning"></i>';
+                                                endif;
+                                            endfor;
+                                            ?>
+                                        </div>
+                                        <span class="text-muted small">
+                                            <?= number_format($average_rating, 1) ?> (<?= $total_ratings ?> reviews)
+                                        </span>
+                                    </div>
+                                </div>
+
                                 <ul class="list-unstyled mb-2">
                                     <li><strong>Plate Number:</strong> <?= htmlspecialchars($car['platenumber']) ?></li>
                                     <li><strong>Type:</strong> <?= htmlspecialchars($car['type']) ?></li>
@@ -51,3 +108,19 @@
             <?php endif; ?>
         </div>
     </div>
+</div>
+
+<style>
+.star-rating {
+    font-size: 1rem;
+}
+.star-rating i {
+    margin-right: 1px;
+}
+.card-img-top {
+    transition: transform 0.3s ease;
+}
+.card:hover .card-img-top {
+    transform: scale(1.05);
+}
+</style>

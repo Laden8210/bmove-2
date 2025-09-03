@@ -37,7 +37,7 @@
                   <?php
 
 
-                  $sql = "SELECT uid, username, full_name, contact_number, email_address, account_type, created_at FROM users where account_type != 'customer' ORDER BY created_at DESC";
+                  $sql = "SELECT uid, username, full_name, contact_number, email_address, account_type, created_at FROM users where account_type != 'customer' and is_deleted = 0 ORDER BY created_at DESC";
                   $result = $conn->query($sql);
 
                   if ($result && $result->num_rows > 0) {
@@ -60,8 +60,8 @@
                                 <button class="btn btn-sm btn-primary" title="Edit" onclick="editUser(\'' . $row['uid'] . '\')" data-bs-toggle="modal" data-bs-target="#updateUserModal">
                                   <i class="bi bi-pencil"></i>
                                 </button>
-                                <button class="btn btn-sm btn-danger" title="Delete" onclick="deleteUser(\'' . $row['uid'] . '\')">
-                                  <i class="bi bi-trash"></i>
+                                <button class="btn btn-sm btn-secondary" title="Delete" onclick="deleteUser(\'' . $row['uid'] . '\')">
+                                    <i class="bi bi-archive"></i>
                                 </button>
                               </td>';
                       echo '</tr>';
@@ -121,7 +121,7 @@
               <label for="account_type" class="form-label">Account Type:</label>
               <select class="form-select" id="account_type" name="account_type" required>
                 <option value="" disabled selected>Select Account Type</option>
-                <option value="admin">Admin</option>
+
                 <option value="driver">Driver</option>
               </select>
             </div>
@@ -179,7 +179,7 @@
               <label for="update_account_type" class="form-label">Account Type:</label>
               <select class="form-select" id="update_account_type" name="account_type" required>
                 <option value="" disabled selected>Select Account Type</option>
-                <option value="admin">Admin</option>
+
                 <option value="driver">Driver</option>
               </select>
             </div>
@@ -248,7 +248,7 @@
       data: {
         uid: uid.toString()
       },
-      promptMessage: "Do you want to delete this user?",
+      promptMessage: "Do you want to archive this user?",
       callback: (err, res) => {
         if (err) return console.error("Deletion error:", err);
         console.log("Item deleted successfully:", res);

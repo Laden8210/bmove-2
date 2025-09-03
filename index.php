@@ -127,10 +127,6 @@ try {
     }
 
 
-
-
-
-
     $content = __DIR__ . '/' . $routes[$request]['file'];
     $title = $routes[$request]['title'];
 

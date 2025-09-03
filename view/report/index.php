@@ -84,6 +84,58 @@ switch ($reportType) {
         $result->execute();
         $reportData = $result->get_result()->fetch_all(MYSQLI_ASSOC);
         break;
+
+    case 'ratings':
+        $reportTitle = 'Customer Ratings Report';
+        $result = $conn->prepare("
+        SELECT 
+            c.comment_id as rating_id,
+            b.booking_id,
+            u.full_name AS customer_name,
+            v.name AS vehicle_name,
+            d.full_name AS driver_name,
+            c.comment_rating as overall_rating,
+            c.comment_rating as service_rating, -- Using same rating for all categories
+            c.comment_rating as vehicle_rating, -- Using same rating for all categories
+            c.comment_rating as driver_rating,  -- Using same rating for all categories
+            c.comment_rating as overall_rating,
+            c.comment AS comments,
+            DATE_FORMAT(c.created_at, '%Y-%m-%d %H:%i') AS rated_at,
+            DATE_FORMAT(b.date, '%Y-%m-%d') AS booking_date
+        FROM comments c
+        JOIN bookings b ON c.booking_id = b.booking_id
+        JOIN users u ON c.user_id = u.uid
+        LEFT JOIN vehicles v ON b.vehicle_id = v.vehicleid
+        LEFT JOIN users d ON v.driver_uid = d.uid
+        WHERE DATE(c.created_at) BETWEEN ? AND ?
+        ORDER BY c.created_at DESC
+    ");
+        $result->bind_param("ss", $startDate, $endDate);
+        $result->execute();
+        $reportData = $result->get_result()->fetch_all(MYSQLI_ASSOC);
+        break;
+
+    case 'ratings_summary':
+        $reportTitle = 'Ratings Summary Report';
+        $result = $conn->prepare("
+        SELECT 
+            'Overall Rating' AS category,
+            COUNT(*) AS total_ratings,
+            AVG(comment_rating) AS average_rating,
+            MIN(comment_rating) AS min_rating,
+            MAX(comment_rating) AS max_rating,
+            SUM(CASE WHEN comment_rating = 5 THEN 1 ELSE 0 END) AS five_stars,
+            SUM(CASE WHEN comment_rating = 4 THEN 1 ELSE 0 END) AS four_stars,
+            SUM(CASE WHEN comment_rating = 3 THEN 1 ELSE 0 END) AS three_stars,
+            SUM(CASE WHEN comment_rating = 2 THEN 1 ELSE 0 END) AS two_stars,
+            SUM(CASE WHEN comment_rating = 1 THEN 1 ELSE 0 END) AS one_star
+        FROM comments
+        WHERE DATE(created_at) BETWEEN ? AND ?
+    ");
+        $result->bind_param("ss", $startDate, $endDate);
+        $result->execute();
+        $reportData = $result->get_result()->fetch_all(MYSQLI_ASSOC);
+        break;
 }
 
 $conn->close();
@@ -232,6 +284,8 @@ $conn->close();
                                             <option value="revenue" <?= $reportType === 'revenue' ? 'selected' : '' ?>>Revenue Report</option>
                                             <option value="vehicles" <?= $reportType === 'vehicles' ? 'selected' : '' ?>>Vehicle Utilization</option>
                                             <option value="customers" <?= $reportType === 'customers' ? 'selected' : '' ?>>Customer Activity</option>
+                                            <option value="ratings" <?= $reportType === 'ratings' ? 'selected' : '' ?>>User Ratings</option>
+                                            <option value="ratings_summary" <?= $reportType === 'ratings_summary' ? 'selected' : '' ?>>Ratings Summary</option>
                                         </select>
                                     </div>
                                     <div class="col-md-3 mb-3">
@@ -251,10 +305,8 @@ $conn->close();
                             </div>
                         </form>
 
-                 
                         <div class="report-actions">
                             <?php if (!empty($reportData)): ?>
-
                                 <button class="btn btn-primary" id="export-pdf">
                                     <i class="bi bi-file-earmark-pdf me-1"></i> Export as PDF
                                 </button>
@@ -312,6 +364,36 @@ $conn->close();
                                             <th>Total Spent</th>
                                             <th>Last Booking</th>
                                         </tr>
+
+                                    <?php elseif ($reportType === 'ratings'): ?>
+                                        <tr>
+                                            <th>Rating ID</th>
+                                            <th>Booking ID</th>
+                                            <th>Customer</th>
+                                            <th>Vehicle</th>
+                                            <th>Driver</th>
+                                            <th>Service</th>
+                                            <th>Vehicle</th>
+                                            <th>Driver</th>
+                                            <th>Overall</th>
+                                            <th>Comments</th>
+                                            <th>Rated At</th>
+                                        </tr>
+
+                                    <?php elseif ($reportType === 'ratings_summary'): ?>
+                                        <tr>
+                                            <th>Category</th>
+                                            <th>Total Ratings</th>
+                                            <th>Average</th>
+                                            <th>Min</th>
+                                            <th>Max</th>
+                                            <th>5★</th>
+                                            <th>4★</th>
+                                            <th>3★</th>
+                                            <th>2★</th>
+                                            <th>1★</th>
+                                        </tr>
+
                                     <?php endif; ?>
                                 </thead>
                                 <tbody>
@@ -365,6 +447,57 @@ $conn->close();
                                                 <td class="fw-bold">₱<?= number_format($row['total_spent'] ?? 0, 2) ?></td>
                                                 <td><?= $row['last_booking_date'] ? date('M d, Y', strtotime($row['last_booking_date'])) : 'N/A' ?></td>
                                             </tr>
+
+                                        <?php elseif ($reportType === 'ratings'): ?>
+                                            <tr>
+                                                <td><?= $row['rating_id'] ?></td>
+                                                <td><?= $row['booking_id'] ?></td>
+                                                <td><?= $row['customer_name'] ?></td>
+                                                <td><?= $row['vehicle_name'] ?? 'N/A' ?></td>
+                                                <td><?= $row['driver_name'] ?? 'N/A' ?></td>
+                                                <td>
+                                                    <span class="star-rating">
+                                                        <?= str_repeat('★', $row['service_rating']) ?><?= str_repeat('☆', 5 - $row['service_rating']) ?>
+                                                    </span>
+                                                </td>
+                                                <td>
+                                                    <span class="star-rating">
+                                                        <?= str_repeat('★', $row['vehicle_rating']) ?><?= str_repeat('☆', 5 - $row['vehicle_rating']) ?>
+                                                    </span>
+                                                </td>
+                                                <td>
+                                                    <span class="star-rating">
+                                                        <?= str_repeat('★', $row['driver_rating']) ?><?= str_repeat('☆', 5 - $row['driver_rating']) ?>
+                                                    </span>
+                                                </td>
+                                                <td>
+                                                    <span class="star-rating overall">
+                                                        <?= str_repeat('★', $row['overall_rating']) ?><?= str_repeat('☆', 5 - $row['overall_rating']) ?>
+                                                    </span>
+                                                </td>
+                                                <td><?= $row['comments'] ? nl2br(htmlspecialchars($row['comments'])) : 'No comments' ?></td>
+                                                <td><?= $row['rated_at'] ?></td>
+                                            </tr>
+
+                                        <?php elseif ($reportType === 'ratings_summary'): ?>
+                                            <tr>
+                                                <td class="fw-bold"><?= $row['category'] ?></td>
+                                                <td><?= $row['total_ratings'] ?></td>
+                                                <td>
+                                                    <span class="fw-bold text-primary"><?= number_format($row['average_rating'], 1) ?></span>
+                                                    <span class="star-rating small">
+                                                        <?= str_repeat('★', round($row['average_rating'])) ?><?= str_repeat('☆', 5 - round($row['average_rating'])) ?>
+                                                    </span>
+                                                </td>
+                                                <td><?= $row['min_rating'] ?></td>
+                                                <td><?= $row['max_rating'] ?></td>
+                                                <td class="text-success"><?= $row['five_stars'] ?></td>
+                                                <td class="text-info"><?= $row['four_stars'] ?></td>
+                                                <td class="text-warning"><?= $row['three_stars'] ?></td>
+                                                <td class="text-warning"><?= $row['two_stars'] ?></td>
+                                                <td class="text-danger"><?= $row['one_star'] ?></td>
+                                            </tr>
+
                                         <?php endif; ?>
                                     <?php endforeach; ?>
 
@@ -381,7 +514,6 @@ $conn->close();
                             </table>
                         </div>
 
-                   
                         <?php if (!empty($reportData)): ?>
                             <div class="row mt-5">
                                 <div class="col-md-12">
@@ -399,6 +531,22 @@ $conn->close();
                     </div>
                 </div>
             </div>
+
+            <style>
+                .star-rating {
+                    color: #ffc107;
+                    font-size: 14px;
+                }
+
+                .star-rating.overall {
+                    font-size: 16px;
+                    font-weight: bold;
+                }
+
+                .star-rating.small {
+                    font-size: 12px;
+                }
+            </style>
         </div>
     </section>
 </main>
@@ -416,7 +564,7 @@ $conn->close();
 
 <script>
     $(document).ready(function() {
-  
+
         $('.datepicker').datepicker({
             format: 'yyyy-mm-dd',
             autoclose: true
@@ -429,7 +577,7 @@ $conn->close();
             order: []
         });
 
-  
+
         $('#print-report').click(function() {
             window.print();
         });
@@ -443,7 +591,7 @@ $conn->close();
 
             const doc = new jsPDF('p', 'mm', 'a4');
 
-    
+
             const title = "<?= $reportTitle ?> Report";
             const subtitle = "<?= date('M d, Y', strtotime($startDate)) ?> - <?= date('M d, Y', strtotime($endDate)) ?>";
 
@@ -451,24 +599,15 @@ $conn->close();
             doc.text(title, 15, 20);
             doc.setFontSize(12);
             doc.text(subtitle, 15, 28);
-
-     
             const generatedDate = "Generated: " + new Date().toLocaleString();
             doc.setFontSize(10);
             doc.text(generatedDate, 15, 35);
-
-        
             doc.setFontSize(12);
             doc.text("Report Summary", 15, 45);
 
-    
             doc.setLineWidth(0.5);
             doc.line(15, 48, 195, 48);
-
-         
             const table = document.getElementById('report-table');
-
-    
             html2canvas(table).then(canvas => {
                 const imgData = canvas.toDataURL('image/png');
                 const imgWidth = doc.internal.pageSize.getWidth() - 30;
@@ -477,11 +616,11 @@ $conn->close();
                 let heightLeft = imgHeight;
                 let position = 60;
 
-  
+
                 doc.addImage(imgData, 'PNG', 15, position, imgWidth, imgHeight);
                 heightLeft -= pageHeight;
 
-        
+
                 while (heightLeft >= 0) {
                     position = heightLeft - imgHeight;
                     doc.addPage();
@@ -489,12 +628,12 @@ $conn->close();
                     heightLeft -= pageHeight;
                 }
 
-       
+
                 doc.save('<?= $reportType ?>_report_<?= date('Ymd_His') ?>.pdf');
             });
         });
 
-   
+
         <?php if (!empty($reportData)): ?>
             const ctx = document.getElementById('report-chart').getContext('2d');
 
@@ -590,7 +729,7 @@ $conn->close();
             <?php elseif ($reportType === 'vehicles'): ?>
                 const vehicleRevenue = {
                     <?php
-           
+
                     usort($reportData, function ($a, $b) {
                         return $b['total_revenue'] <=> $a['total_revenue'];
                     });
@@ -639,7 +778,7 @@ $conn->close();
             <?php elseif ($reportType === 'customers'): ?>
                 const customerSpending = {
                     <?php
-       
+
                     usort($reportData, function ($a, $b) {
                         return $b['total_spent'] <=> $a['total_spent'];
                     });

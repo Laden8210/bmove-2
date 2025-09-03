@@ -23,7 +23,7 @@ if (!isset($input['uid'])) {
 $user_id = $input['uid'];
 
 // Check if the user exists in the database
-$stmt = $conn->prepare("SELECT * FROM users WHERE uid = ?");
+$stmt = $conn->prepare("SELECT * FROM users WHERE uid = ? AND is_deleted = 0");
 $stmt->bind_param("s", $user_id);
 $stmt->execute();
 $result = $stmt->get_result();
@@ -37,7 +37,7 @@ if (!$user) {
 }
 
 
-$delete_stmt = $conn->prepare("DELETE FROM users WHERE uid = ?");
+$delete_stmt = $conn->prepare("UPDATE users SET is_deleted = 1 WHERE uid = ?");
 $delete_stmt->bind_param("s", $user_id);
 $delete_stmt->execute();
 

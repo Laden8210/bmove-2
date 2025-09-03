@@ -588,17 +588,34 @@ $stmt->close();
                                 <textarea id="notes" name="notes" class="form-control form-control-lg" rows="3"
                                     placeholder="Any special instructions or notes"></textarea>
                             </div>
-
                             <div class="mb-4">
-                                <label for="payment_method" class="form-label"><i class="bi bi-credit-card me-1"></i>Payment Method</label>
+                                <label for="payment_method" class="form-label">
+                                    <i class="bi bi-credit-card me-1"></i>Payment Method
+                                </label>
                                 <select id="payment_method" name="payment_method" class="form-select form-select-lg" required>
                                     <option value="" disabled selected>Select payment method</option>
-                          
                                     <option value="gcash">GCash</option>
                                     <option value="maya">Maya</option>
                                     <option value="cash">Cash on Delivery (COD)</option>
                                 </select>
                                 <div class="invalid-feedback">Please select a payment method</div>
+                            </div>
+
+                            <div id="cod_policy" class="alert alert-warning mt-3 d-none">
+                                <strong>Cash on Delivery Policy:</strong>
+                                <p class="mb-2">For bookings (Move A Thing / Car Rental) using COD, please note:</p>
+                                <ul class="mb-3">
+                                    <li>Prepare the exact amount upon delivery or rental handover.</li>
+                                    <li>COD is only available within approved service areas.</li>
+                                    <li>Failure to pay on delivery may result in account restrictions or denial of future bookings.</li>
+                                </ul>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="cod_agree" required>
+                                    <label class="form-check-label" for="cod_agree">
+                                        I agree to the Cash on Delivery policy
+                                    </label>
+                                    <div class="invalid-feedback">You must agree to the COD policy before proceeding.</div>
+                                </div>
                             </div>
 
                             <input type="hidden" id="total_price" name="total_price" class="form-control">
@@ -613,6 +630,22 @@ $stmt->close();
             </div>
         </div>
     </div>
+
+    <script>
+        document.getElementById('payment_method').addEventListener('change', function() {
+            const codPolicy = document.getElementById('cod_policy');
+            const codAgree = document.getElementById('cod_agree');
+
+            if (this.value === 'cash') {
+                codPolicy.classList.remove('d-none');
+                codAgree.setAttribute('required', 'required');
+            } else {
+                codPolicy.classList.add('d-none');
+                codAgree.removeAttribute('required');
+                codAgree.checked = false;
+            }
+        });
+    </script>
 
     <!-- Leaflet & Routing Libraries -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>

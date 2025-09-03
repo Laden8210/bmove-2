@@ -29,6 +29,7 @@
                 <thead>
                   <tr>
                     <th>Name</th>
+                    <th>Image</th>
                     <th>Plate Number</th>
                     <th>Total Capacity (kg)</th>
                     <th>Status</th>
@@ -51,6 +52,13 @@
                   if ($result && $result->num_rows > 0) {
                     while ($row = $result->fetch_assoc()) {
                       echo "<tr>";
+                      echo "<td>";
+                      if (!empty($row['image_path'])) {
+                        echo "<img src='uploads/vehicles/" . htmlspecialchars($row['image_path']) . "' alt='" . htmlspecialchars($row['name']) . "' class='img-thumbnail' style='max-width: 100px;'>";
+                      } else {
+                        echo "<span class='badge bg-secondary'>No Image</span>";
+                      }
+                      echo "</td>";
                       echo "<td>" . htmlspecialchars($row['name']) . "</td>";
                       echo "<td>" . htmlspecialchars($row['platenumber']) . "</td>";
                       echo "<td>" . number_format($row['totalcapacitykg']) . "</td>";
@@ -132,7 +140,7 @@
           <div id="commentsList" class="list-group">
             <!-- Comments will be dynamically loaded here -->
           </div>
-  
+
         </div>
       </div>
     </div>
@@ -150,6 +158,7 @@
           </div>
           <div class="modal-body">
             <div class="row g-3">
+
               <div class="col-md-6">
                 <label for="truckName" class="form-label">Name</label>
                 <input type="text" class="form-control" id="name" name="name" required>
@@ -212,6 +221,11 @@
               <div class="col-md-6">
                 <label for="year" class="form-label">Year</label>
                 <input type="number" class="form-control" id="year" name="year" required>
+              </div>
+
+              <div class="col-md-6">
+                <label for="vehicle_image" class="form-label">Vehicle Image</label>
+                <input type="file" class="form-control" id="vehicle_image" name="vehicle_image" accept="image/*">
               </div>
               <div class="col-md-6">
                 <label for="driver" class="form-label">Driver</label>
@@ -377,13 +391,13 @@
           </div>
           <div class="modal-footer">
             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-            <button type="submit" class="btn btn-primary" id="update-status-submit-btn">Update Status</button>  
+            <button type="submit" class="btn btn-primary" id="update-status-submit-btn">Update Status</button>
           </div>
         </div>
       </form>
     </div>
   </div>
-</div>
+  </div>
 
 
 
@@ -391,12 +405,56 @@
 
 
 <script>
-  const createRequest = new CreateRequest({
-    formSelector: "#add-form",
-    submitButtonSelector: "#submit-btn",
-    callback: (err, res) => err ? console.error("Form submission error:", err) : console.log(
-      "Form submitted successfully:", res)
+  document.querySelector("#add-form").addEventListener("submit", function(e) {
+    e.preventDefault();
+
+    const submitBtn = document.querySelector("#submit-btn");
+    submitBtn.disabled = true;
+
+    const formData = new FormData(this);
+
+    fetch(this.action, {
+        method: this.method,
+        body: formData
+      })
+      .then((res) => res.json())
+      .then((res) => {
+        if (res.status === 'success') {
+            Swal.fire({
+            icon: "success",
+            title: "Success!",
+            text: res.message || "Truck added successfully.",
+            timer: 2000,
+            showConfirmButton: false
+            }).then(() => {
+            location.reload();
+            });
+
+          // Reset form & close modal
+          this.reset();
+          const modalEl = document.getElementById("addTruckModal");
+          const modal = bootstrap.Modal.getInstance(modalEl);
+          modal.hide();
+        } else {
+          Swal.fire({
+            icon: "error",
+            title: "Error",
+            text: res.message || "Something went wrong."
+          });
+        }
+      })
+      .catch((err) => {
+        Swal.fire({
+          icon: "error",
+          title: "Request Failed",
+          text: err.message || "Could not submit the form."
+        });
+      })
+      .finally(() => {
+        submitBtn.disabled = false;
+      });
   });
+
 
 
   $('#update-form').on('submit', function(e) {
@@ -450,7 +508,7 @@
             commentContainer.appendChild(listItem);
           });
         }
-      
+
       }
     }).send();
   };
