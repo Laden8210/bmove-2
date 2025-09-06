@@ -24,6 +24,7 @@ try {
     $routes = [
         'home' => ['file' => 'view/home/index.php', 'title' => 'Home', 'auth_required' => false, 'layout' => 'view/layouts/app.php'],
         '' => ['file' => 'view/home/index.php', 'title' => 'Home', 'auth_required' => false, 'layout' => 'view/layouts/app.php'],
+        'about' => ['file' => 'view/home/about.php', 'title' => 'About', 'auth_required' => false, 'layout' => 'view/layouts/app.php'],
         'register' => ['file' => 'view/auth/register.php', 'title' => 'Register', 'auth_required' => false, 'layout' => 'view/layouts/app.php'],
         'dashboard' => ['file' => 'view/users/dashboard.php', 'title' => 'Dashboard', 'auth_required' => true, 'layout' => 'view/layouts/app.php'],
         'login' => ['file' => 'view/auth/login.php', 'title' => 'Login', 'auth_required' => false, 'layout' => 'view/layouts/app.php'],
