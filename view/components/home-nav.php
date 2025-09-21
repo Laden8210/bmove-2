@@ -9,11 +9,6 @@
             <ul class="navbar-nav">
                 <li class="nav-item"><a class="nav-link" href="create-booking">HOME</a></li>
                 <li class="nav-item"><a class="nav-link" href="about">ABOUT US</a></li>
-                <li class="nav-item"><a class="nav-link" href="storage-size">STORAGE SIZES</a></li>
-                <li class="nav-item"><a class="nav-link" href="service">SERVICES</a></li>
-                <li class="nav-item"><a class="nav-link" href="online-payment">ONLINE PAYMENT</a></li>
-                <li class="nav-item"><a class="nav-link" href="locations">LOCATIONS</a></li>
-                <li class="nav-item"><a class="nav-link" href="inquire">INQUIRE NOW</a></li>
 
                 <?php  if (isset($_SESSION['auth'])) { ?>
                     <li class="nav-item"><a class="nav-link" href="dashboard">DASHBOARD</a></li>

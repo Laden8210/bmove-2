@@ -278,6 +278,14 @@ $bookings = $result->fetch_all(MYSQLI_ASSOC);
                                     <i class="fa fa-comment" aria-hidden="true"></i> Add Comment
                                 </button>
 
+                                <?php if (in_array($booking['status'], ['confirmed', 'in_transit'])): ?>
+                                <button class="btn btn-sm btn-outline-info track-driver-btn"
+                                    onclick="trackDriver('<?= htmlspecialchars($booking['booking_id']) ?>')"
+                                    title="Track your driver in real-time">
+                                    <i class="bi bi-geo-alt-fill me-1"></i> Track Driver
+                                </button>
+                                <?php endif; ?>
+
                             </div>
 
                         </div>
@@ -411,6 +419,9 @@ $bookings = $result->fetch_all(MYSQLI_ASSOC);
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
                     <i class="bi bi-x-circle me-1"></i> Close
+                </button>
+                <button type="button" class="btn btn-info track-driver-modal-btn" id="trackDriverModalBtn" style="display: none;">
+                    <i class="bi bi-geo-alt-fill me-1"></i> Track Driver
                 </button>
             </div>
         </div>
@@ -600,6 +611,12 @@ $bookings = $result->fetch_all(MYSQLI_ASSOC);
         // Implement your toast notification system here
         console.error('Error:', message);
     }
+
+    // Track driver function
+    window.trackDriver = function(bookingId) {
+        // Redirect to track driver page
+        window.location.href = `track-driver?booking_id=${bookingId}`;
+    };
 </script>
 
 
@@ -621,6 +638,58 @@ $bookings = $result->fetch_all(MYSQLI_ASSOC);
 
     #map {
         min-height: 500px;
+    }
+
+    .track-driver-btn {
+        position: relative;
+        overflow: hidden;
+        transition: all 0.3s ease;
+    }
+
+    .track-driver-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(13, 202, 240, 0.3);
+    }
+
+    .track-driver-btn:before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+        transition: left 0.5s;
+    }
+
+    .track-driver-btn:hover:before {
+        left: 100%;
+    }
+
+    .track-driver-modal-btn {
+        position: relative;
+        overflow: hidden;
+        transition: all 0.3s ease;
+    }
+
+    .track-driver-modal-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(13, 202, 240, 0.3);
+    }
+
+    .track-driver-modal-btn:before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+        transition: left 0.5s;
+    }
+
+    .track-driver-modal-btn:hover:before {
+        left: 100%;
     }
 </style>
 
@@ -737,6 +806,15 @@ $bookings = $result->fetch_all(MYSQLI_ASSOC);
             document.getElementById('modalVehicleType').textContent = bookingData.vehicleType;
             document.getElementById('modalVehicleModel').textContent = bookingData.vehicleModel;
             document.getElementById('modalVehicleYear').textContent = bookingData.vehicleYear;
+
+            // Show/hide track driver button based on booking status
+            const trackDriverBtn = document.getElementById('trackDriverModalBtn');
+            if (['confirmed', 'in_transit'].includes(bookingData.status)) {
+                trackDriverBtn.style.display = 'inline-block';
+                trackDriverBtn.onclick = () => trackDriver(button.dataset.bookingId);
+            } else {
+                trackDriverBtn.style.display = 'none';
+            }
 
             setTimeout(() => {
 

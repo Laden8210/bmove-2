@@ -88,28 +88,26 @@ switch ($reportType) {
     case 'ratings':
         $reportTitle = 'Customer Ratings Report';
         $result = $conn->prepare("
-        SELECT 
-            c.comment_id as rating_id,
-            b.booking_id,
-            u.full_name AS customer_name,
-            v.name AS vehicle_name,
-            d.full_name AS driver_name,
-            c.comment_rating as overall_rating,
-            c.comment_rating as service_rating, -- Using same rating for all categories
-            c.comment_rating as vehicle_rating, -- Using same rating for all categories
-            c.comment_rating as driver_rating,  -- Using same rating for all categories
-            c.comment_rating as overall_rating,
-            c.comment AS comments,
-            DATE_FORMAT(c.created_at, '%Y-%m-%d %H:%i') AS rated_at,
-            DATE_FORMAT(b.date, '%Y-%m-%d') AS booking_date
-        FROM comments c
-        JOIN bookings b ON c.booking_id = b.booking_id
-        JOIN users u ON c.user_id = u.uid
-        LEFT JOIN vehicles v ON b.vehicle_id = v.vehicleid
-        LEFT JOIN users d ON v.driver_uid = d.uid
-        WHERE DATE(c.created_at) BETWEEN ? AND ?
-        ORDER BY c.created_at DESC
-    ");
+            SELECT 
+                c.comment_id as rating_id,
+                b.booking_id,
+                u.full_name AS customer_name,
+                v.name AS vehicle_name,
+                COALESCE(d.full_name, 'No Driver Assigned') AS driver_name,
+                c.comment_rating as overall_rating,
+                c.comment AS comments,
+                DATE_FORMAT(c.created_at, '%Y-%m-%d %H:%i') AS rated_at,
+                DATE_FORMAT(b.date, '%Y-%m-%d') AS booking_date,
+                b.pickup_location,
+                b.dropoff_location
+            FROM comments c
+            JOIN bookings b ON c.booking_id = b.booking_id
+            JOIN users u ON c.user_id = u.uid
+            LEFT JOIN vehicles v ON b.vehicle_id = v.vehicleid
+            LEFT JOIN users d ON v.driver_uid = d.uid
+            WHERE DATE(c.created_at) BETWEEN ? AND ?
+            ORDER BY c.created_at DESC
+        ");
         $result->bind_param("ss", $startDate, $endDate);
         $result->execute();
         $reportData = $result->get_result()->fetch_all(MYSQLI_ASSOC);
@@ -118,20 +116,21 @@ switch ($reportType) {
     case 'ratings_summary':
         $reportTitle = 'Ratings Summary Report';
         $result = $conn->prepare("
-        SELECT 
-            'Overall Rating' AS category,
-            COUNT(*) AS total_ratings,
-            AVG(comment_rating) AS average_rating,
-            MIN(comment_rating) AS min_rating,
-            MAX(comment_rating) AS max_rating,
-            SUM(CASE WHEN comment_rating = 5 THEN 1 ELSE 0 END) AS five_stars,
-            SUM(CASE WHEN comment_rating = 4 THEN 1 ELSE 0 END) AS four_stars,
-            SUM(CASE WHEN comment_rating = 3 THEN 1 ELSE 0 END) AS three_stars,
-            SUM(CASE WHEN comment_rating = 2 THEN 1 ELSE 0 END) AS two_stars,
-            SUM(CASE WHEN comment_rating = 1 THEN 1 ELSE 0 END) AS one_star
-        FROM comments
-        WHERE DATE(created_at) BETWEEN ? AND ?
-    ");
+            SELECT 
+                'Overall Rating' AS category,
+                COUNT(*) AS total_ratings,
+                ROUND(AVG(comment_rating), 2) AS average_rating,
+                MIN(comment_rating) AS min_rating,
+                MAX(comment_rating) AS max_rating,
+                SUM(CASE WHEN comment_rating = 5 THEN 1 ELSE 0 END) AS five_stars,
+                SUM(CASE WHEN comment_rating = 4 THEN 1 ELSE 0 END) AS four_stars,
+                SUM(CASE WHEN comment_rating = 3 THEN 1 ELSE 0 END) AS three_stars,
+                SUM(CASE WHEN comment_rating = 2 THEN 1 ELSE 0 END) AS two_stars,
+                SUM(CASE WHEN comment_rating = 1 THEN 1 ELSE 0 END) AS one_star,
+                ROUND((SUM(CASE WHEN comment_rating >= 4 THEN 1 ELSE 0 END) / COUNT(*)) * 100, 2) AS satisfaction_percentage
+            FROM comments
+            WHERE DATE(created_at) BETWEEN ? AND ?
+        ");
         $result->bind_param("ss", $startDate, $endDate);
         $result->execute();
         $reportData = $result->get_result()->fetch_all(MYSQLI_ASSOC);
@@ -172,6 +171,27 @@ $conn->close();
     .bg-cancelled {
         background-color: rgba(231, 76, 60, 0.1);
         color: #e74c3c;
+    }
+
+    .star-rating {
+        color: #ffc107;
+        font-size: 14px;
+        font-family: monospace;
+    }
+
+    .star-rating.small {
+        font-size: 12px;
+    }
+
+    .star-rating.overall {
+        font-weight: bold;
+        font-size: 16px;
+    }
+
+    .rating-number {
+        color: #6c757d;
+        font-size: 12px;
+        margin-left: 5px;
     }
 
     .report-actions {
@@ -220,11 +240,36 @@ $conn->close();
         margin: 25px 0;
     }
 
-    .dataTables_wrapper {
-        padding: 20px;
+    .table-responsive {
         background-color: white;
         border-radius: 10px;
         box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+        padding: 20px;
+    }
+
+    .table {
+        margin-bottom: 0;
+    }
+
+    .table th {
+        background-color: #f8f9fa;
+        border-top: none;
+        font-weight: 600;
+        color: #495057;
+        padding: 12px 8px;
+    }
+
+    .table td {
+        padding: 10px 8px;
+        vertical-align: middle;
+    }
+
+    .table-striped tbody tr:nth-of-type(odd) {
+        background-color: rgba(0, 0, 0, 0.02);
+    }
+
+    .table-hover tbody tr:hover {
+        background-color: rgba(0, 0, 0, 0.05);
     }
 
     .status-indicator {
@@ -310,6 +355,9 @@ $conn->close();
                                 <button class="btn btn-primary" id="export-pdf">
                                     <i class="bi bi-file-earmark-pdf me-1"></i> Export as PDF
                                 </button>
+                                <button class="btn btn-success" id="download-pdf">
+                                    <i class="bi bi-download me-1"></i> Download PDF
+                                </button>
                             <?php endif; ?>
                         </div>
 
@@ -372,12 +420,10 @@ $conn->close();
                                             <th>Customer</th>
                                             <th>Vehicle</th>
                                             <th>Driver</th>
-                                            <th>Service</th>
-                                            <th>Vehicle</th>
-                                            <th>Driver</th>
-                                            <th>Overall</th>
+                                            <th>Rating</th>
                                             <th>Comments</th>
                                             <th>Rated At</th>
+                                            <th>Booking Date</th>
                                         </tr>
 
                                     <?php elseif ($reportType === 'ratings_summary'): ?>
@@ -392,6 +438,7 @@ $conn->close();
                                             <th>3★</th>
                                             <th>2★</th>
                                             <th>1★</th>
+                                            <th>Satisfaction %</th>
                                         </tr>
 
                                     <?php endif; ?>
@@ -450,33 +497,20 @@ $conn->close();
 
                                         <?php elseif ($reportType === 'ratings'): ?>
                                             <tr>
-                                                <td><?= $row['rating_id'] ?></td>
-                                                <td><?= $row['booking_id'] ?></td>
-                                                <td><?= $row['customer_name'] ?></td>
-                                                <td><?= $row['vehicle_name'] ?? 'N/A' ?></td>
-                                                <td><?= $row['driver_name'] ?? 'N/A' ?></td>
-                                                <td>
-                                                    <span class="star-rating">
-                                                        <?= str_repeat('★', $row['service_rating']) ?><?= str_repeat('☆', 5 - $row['service_rating']) ?>
-                                                    </span>
-                                                </td>
-                                                <td>
-                                                    <span class="star-rating">
-                                                        <?= str_repeat('★', $row['vehicle_rating']) ?><?= str_repeat('☆', 5 - $row['vehicle_rating']) ?>
-                                                    </span>
-                                                </td>
-                                                <td>
-                                                    <span class="star-rating">
-                                                        <?= str_repeat('★', $row['driver_rating']) ?><?= str_repeat('☆', 5 - $row['driver_rating']) ?>
-                                                    </span>
-                                                </td>
+                                                <td><?= substr($row['rating_id'], 0, 8) ?>...</td>
+                                                <td><?= substr($row['booking_id'], 0, 8) ?>...</td>
+                                                <td><?= htmlspecialchars($row['customer_name']) ?></td>
+                                                <td><?= htmlspecialchars($row['vehicle_name'] ?? 'N/A') ?></td>
+                                                <td><?= htmlspecialchars($row['driver_name']) ?></td>
                                                 <td>
                                                     <span class="star-rating overall">
-                                                        <?= str_repeat('★', $row['overall_rating']) ?><?= str_repeat('☆', 5 - $row['overall_rating']) ?>
+                                                        <?= str_repeat('*', $row['overall_rating']) ?><?= str_repeat('o', 5 - $row['overall_rating']) ?>
+                                                        <span class="rating-number">(<?= $row['overall_rating'] ?>/5)</span>
                                                     </span>
                                                 </td>
-                                                <td><?= $row['comments'] ? nl2br(htmlspecialchars($row['comments'])) : 'No comments' ?></td>
+                                                <td><?= $row['comments'] ? nl2br(htmlspecialchars(substr($row['comments'], 0, 100))) . (strlen($row['comments']) > 100 ? '...' : '') : 'No comments' ?></td>
                                                 <td><?= $row['rated_at'] ?></td>
+                                                <td><?= $row['booking_date'] ?></td>
                                             </tr>
 
                                         <?php elseif ($reportType === 'ratings_summary'): ?>
@@ -486,7 +520,7 @@ $conn->close();
                                                 <td>
                                                     <span class="fw-bold text-primary"><?= number_format($row['average_rating'], 1) ?></span>
                                                     <span class="star-rating small">
-                                                        <?= str_repeat('★', round($row['average_rating'])) ?><?= str_repeat('☆', 5 - round($row['average_rating'])) ?>
+                                                        <?= str_repeat('*', round($row['average_rating'])) ?><?= str_repeat('o', 5 - round($row['average_rating'])) ?>
                                                     </span>
                                                 </td>
                                                 <td><?= $row['min_rating'] ?></td>
@@ -496,6 +530,7 @@ $conn->close();
                                                 <td class="text-warning"><?= $row['three_stars'] ?></td>
                                                 <td class="text-warning"><?= $row['two_stars'] ?></td>
                                                 <td class="text-danger"><?= $row['one_star'] ?></td>
+                                                <td class="fw-bold text-success"><?= $row['satisfaction_percentage'] ?>%</td>
                                             </tr>
 
                                         <?php endif; ?>
@@ -555,8 +590,6 @@ $conn->close();
 
 <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-<script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
-<script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-datepicker/1.9.0/js/bootstrap-datepicker.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
@@ -571,11 +604,7 @@ $conn->close();
         });
 
 
-        $('#report-table').DataTable({
-            pageLength: 10,
-            responsive: true,
-            order: []
-        });
+        // DataTable removed - using normal responsive table
 
 
         $('#print-report').click(function() {
@@ -583,55 +612,119 @@ $conn->close();
         });
 
 
+        // PDF Export functionality using DOMPDF
         $('#export-pdf').click(function() {
-            const {
-                jsPDF
-            } = window.jspdf;
+            const button = this;
+            const originalText = button.innerHTML;
+            
+            // Show loading state
+            button.innerHTML = '<i class="bi bi-hourglass-split me-1"></i> Generating PDF...';
+            button.disabled = true;
 
+            const reportData = {
+                report_type: '<?= $reportType ?>',
+                start_date: '<?= $startDate ?>',
+                end_date: '<?= $endDate ?>'
+            };
 
-            const doc = new jsPDF('p', 'mm', 'a4');
-
-
-            const title = "<?= $reportTitle ?> Report";
-            const subtitle = "<?= date('M d, Y', strtotime($startDate)) ?> - <?= date('M d, Y', strtotime($endDate)) ?>";
-
-            doc.setFontSize(18);
-            doc.text(title, 15, 20);
-            doc.setFontSize(12);
-            doc.text(subtitle, 15, 28);
-            const generatedDate = "Generated: " + new Date().toLocaleString();
-            doc.setFontSize(10);
-            doc.text(generatedDate, 15, 35);
-            doc.setFontSize(12);
-            doc.text("Report Summary", 15, 45);
-
-            doc.setLineWidth(0.5);
-            doc.line(15, 48, 195, 48);
-            const table = document.getElementById('report-table');
-            html2canvas(table).then(canvas => {
-                const imgData = canvas.toDataURL('image/png');
-                const imgWidth = doc.internal.pageSize.getWidth() - 30;
-                const pageHeight = doc.internal.pageSize.getHeight();
-                const imgHeight = canvas.height * imgWidth / canvas.width;
-                let heightLeft = imgHeight;
-                let position = 60;
-
-
-                doc.addImage(imgData, 'PNG', 15, position, imgWidth, imgHeight);
-                heightLeft -= pageHeight;
-
-
-                while (heightLeft >= 0) {
-                    position = heightLeft - imgHeight;
-                    doc.addPage();
-                    doc.addImage(imgData, 'PNG', 15, position, imgWidth, imgHeight);
-                    heightLeft -= pageHeight;
+            fetch('controller/report/generate-pdf.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(reportData)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    // Open PDF in new tab
+                    window.open(data.download_url, '_blank');
+                    
+                    // Show success message
+                    showNotification('PDF generated successfully!', 'success');
+                } else {
+                    showNotification('Error generating PDF: ' + data.message, 'error');
                 }
-
-
-                doc.save('<?= $reportType ?>_report_<?= date('Ymd_His') ?>.pdf');
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showNotification('Error generating PDF. Please try again.', 'error');
+            })
+            .finally(() => {
+                // Restore button state
+                button.innerHTML = originalText;
+                button.disabled = false;
             });
         });
+
+        // Download PDF functionality
+        $('#download-pdf').click(function() {
+            const button = this;
+            const originalText = button.innerHTML;
+            
+            // Show loading state
+            button.innerHTML = '<i class="bi bi-hourglass-split me-1"></i> Downloading...';
+            button.disabled = true;
+
+            const reportData = {
+                report_type: '<?= $reportType ?>',
+                start_date: '<?= $startDate ?>',
+                end_date: '<?= $endDate ?>'
+            };
+
+            fetch('controller/report/generate-pdf.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(reportData)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    // Create download link
+                    const link = document.createElement('a');
+                    link.href = data.download_url;
+                    link.download = data.filename;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    
+                    showNotification('PDF downloaded successfully!', 'success');
+                } else {
+                    showNotification('Error generating PDF: ' + data.message, 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showNotification('Error downloading PDF. Please try again.', 'error');
+            })
+            .finally(() => {
+                // Restore button state
+                button.innerHTML = originalText;
+                button.disabled = false;
+            });
+        });
+
+        // Notification function
+        function showNotification(message, type) {
+            const notification = document.createElement('div');
+            notification.className = `alert alert-${type === 'success' ? 'success' : 'danger'} alert-dismissible fade show position-fixed`;
+            notification.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+            notification.innerHTML = `
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            
+            document.body.appendChild(notification);
+            
+            // Auto remove after 5 seconds
+            setTimeout(() => {
+                if (notification.parentNode) {
+                    notification.parentNode.removeChild(notification);
+                }
+            }, 5000);
+        }
 
 
         <?php if (!empty($reportData)): ?>

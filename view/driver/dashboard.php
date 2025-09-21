@@ -230,6 +230,45 @@ $bookings = $result->fetch_all(MYSQLI_ASSOC);
                         </div>
                     </div>
 
+                    <!-- GPS Tracking Controls -->
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h6 class="card-title mb-0">
+                                <i class="bi bi-geo-alt-fill me-2"></i>GPS Location Tracking
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="d-grid gap-2">
+                                        <button id="start-tracking-btn" class="btn btn-success">
+                                            <i class="bi bi-play-fill me-2"></i>Start Tracking
+                                        </button>
+                                        <button id="stop-tracking-btn" class="btn btn-danger" style="display: none;">
+                                            <i class="bi bi-stop-fill me-2"></i>Stop Tracking
+                                        </button>
+                                        <button id="pause-tracking-btn" class="btn btn-warning" style="display: none;">
+                                            <i class="bi bi-pause-fill me-2"></i>Pause Tracking
+                                        </button>
+                                        <button id="resume-tracking-btn" class="btn btn-info" style="display: none;">
+                                            <i class="bi bi-play-fill me-2"></i>Resume Tracking
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="location-info">
+                                        <p class="mb-1"><strong>Status:</strong> <span id="tracking-status" class="badge bg-secondary">Stopped</span></p>
+                                        <p class="mb-1"><strong>Latitude:</strong> <span id="current-lat">-</span></p>
+                                        <p class="mb-1"><strong>Longitude:</strong> <span id="current-lng">-</span></p>
+                                        <p class="mb-1"><strong>Accuracy:</strong> <span id="current-accuracy">-</span></p>
+                                        <p class="mb-1"><strong>Speed:</strong> <span id="current-speed">-</span></p>
+                                        <p class="mb-0"><strong>Last Update:</strong> <span id="last-update">-</span></p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Map Canvas -->
                     <div class="map-container">
                         <div id="map" style="height: 100%; width: 100%;"></div>
@@ -510,9 +549,16 @@ $bookings = $result->fetch_all(MYSQLI_ASSOC);
     }
 </style>
 
+<!-- Hidden fields for GPS tracking -->
+<input type="hidden" id="booking-id" value="">
+<input type="hidden" id="driver-id" value="<?= htmlspecialchars($current_uid) ?>">
+
 <!-- Leaflet & Routing Libraries -->
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.min.js"></script>
+
+<!-- GPS Tracking Scripts -->
+<script src="public/js/driver-location-tracker.js"></script>
 
 <script>
     // Initialize variables for the map and route
@@ -659,6 +705,9 @@ $bookings = $result->fetch_all(MYSQLI_ASSOC);
             console.log(bookingData);
             // Hidden input for booking ID
             document.getElementById('bookingId').value = bookingData.bookingId;
+            
+            // Set booking ID for GPS tracking
+            document.getElementById('booking-id').value = bookingData.bookingId;
             // button to start trip
             const btnStartTrip = document.getElementById('btnStartTrip');
             btnStartTrip.onclick = () => startTrip(bookingData.bookingId);

@@ -37,7 +37,13 @@ try {
         'customer-dashboard' => ['file' => 'view/customer/dashboard.php', 'title' => 'Customer Dashboard', 'auth_required' => true, 'layout' => 'view/layouts/app.php'],
         'create-booking' => ['file' => 'view/home/index.php', 'title' => 'Create Booking', 'auth_required' => true, 'layout' => 'view/layouts/app.php'],
         'driver-dashboard' => ['file' => 'view/driver/dashboard.php', 'title' => 'Driver Dashboard', 'auth_required' => true, 'layout' => 'view/layouts/app.php'],
+        'track-driver' => ['file' => 'view/customer/track-driver.php', 'title' => 'Track Driver', 'auth_required' => true, 'layout' => 'view/layouts/app.php'],
         'report' => ['file' => 'view/report/index.php', 'title' => 'Report', 'auth_required' => true, 'layout' => 'view/layouts/app.php'],
+        
+        // PayMongo Payment Routes
+        'payment-success' => ['file' => 'view/payment/success.php', 'title' => 'Payment Success', 'auth_required' => false, 'layout' => 'view/layouts/app.php'],
+        'payment-cancel' => ['file' => 'view/payment/cancel.php', 'title' => 'Payment Cancelled', 'auth_required' => false, 'layout' => 'view/layouts/app.php'],
+        'paymongo-webhook' => ['file' => 'controller/payment/paymongo-webhook.php', 'title' => 'PayMongo Webhook', 'auth_required' => false, 'layout' => null],
     ];
 
 
@@ -113,7 +119,7 @@ try {
 
 
     $roleRoutes = [
-        'customer' => ['customer-dashboard', 'book', 'create-booking', ''],
+        'customer' => ['customer-dashboard', 'book', 'create-booking', 'track-driver', ''],
         'driver' => ['driver-dashboard'],
         'admin' => ['dashboard', 'manage-user-account', 'vehicle', 'bookings', 'about-us', 'report'], 
     ];
@@ -131,7 +137,12 @@ try {
     $content = __DIR__ . '/' . $routes[$request]['file'];
     $title = $routes[$request]['title'];
 
-    require_once __DIR__ . '/' . $routes[$request]['layout'];
+    // Handle routes without layout (like webhooks)
+    if ($routes[$request]['layout'] === null) {
+        require_once $content;
+    } else {
+        require_once __DIR__ . '/' . $routes[$request]['layout'];
+    }
 } catch (Exception $e) {
     error_log($e->getMessage());
 

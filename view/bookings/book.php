@@ -94,6 +94,28 @@ $stmt->close();
         border: 1px solid #e0e0e0;
     }
 
+    .map-controls {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        z-index: 1000;
+        display: flex;
+        gap: 5px;
+    }
+
+    .map-controls .btn {
+        background: rgba(255, 255, 255, 0.9);
+        border: 1px solid #ddd;
+        backdrop-filter: blur(5px);
+        font-size: 12px;
+        padding: 5px 10px;
+    }
+
+    .map-controls .btn:hover {
+        background: rgba(255, 255, 255, 1);
+        transform: translateY(-1px);
+    }
+
     #map {
         height: 100%;
         width: 100%;
@@ -404,6 +426,67 @@ $stmt->close();
         color: #6c757d;
         font-style: italic;
     }
+
+    /* Custom marker styles */
+    .custom-marker {
+        background: transparent;
+        border: none;
+    }
+
+    .marker-content {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-weight: bold;
+        font-size: 14px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+        position: relative;
+    }
+
+    .pickup-marker .marker-content {
+        background: linear-gradient(135deg, #1cc88a, #17a673);
+    }
+
+    .dropoff-marker .marker-content {
+        background: linear-gradient(135deg, #e74a3b, #c0392b);
+    }
+
+    .marker-content i {
+        font-size: 16px;
+        margin-right: 2px;
+    }
+
+    .marker-content span {
+        font-size: 12px;
+        font-weight: bold;
+    }
+
+    /* Marker selection modal */
+    .marker-modal {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 10000;
+    }
+
+    .marker-modal-content {
+        background: white;
+        padding: 20px;
+        border-radius: 10px;
+        box-shadow: 0 5px 20px rgba(0, 0, 0, 0.3);
+        text-align: center;
+        max-width: 300px;
+    }
 </style>
 </head>
 
@@ -429,9 +512,28 @@ $stmt->close();
                             <div class="marker-icon marker-end">B</div>
                             <div>Drop-off Location</div>
                         </div>
+                        
+                        <div class="alert alert-info mb-3">
+                            <i class="bi bi-info-circle me-2"></i>
+                            <strong>Map Instructions:</strong>
+                            <ul class="mb-0 mt-2">
+                                <li>Click anywhere on the map to pin locations</li>
+                                <li>Type addresses in the fields below for automatic geocoding</li>
+                                <li>Drag markers to fine-tune positions</li>
+                                <li>Use the controls to center the map or clear markers</li>
+                            </ul>
+                        </div>
 
                         <div class="map-container">
                             <div id="map"></div>
+                            <div class="map-controls">
+                                <button type="button" class="btn btn-sm btn-outline-primary" id="center-map">
+                                    <i class="bi bi-geo-alt"></i> Center Map
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline-success" id="clear-markers">
+                                    <i class="bi bi-trash"></i> Clear Markers
+                                </button>
+                            </div>
                         </div>
 
                         <div class="price-estimate-card">
@@ -594,8 +696,7 @@ $stmt->close();
                                 </label>
                                 <select id="payment_method" name="payment_method" class="form-select form-select-lg" required>
                                     <option value="" disabled selected>Select payment method</option>
-                                    <option value="gcash">GCash</option>
-                                    <option value="maya">Maya</option>
+                                    <option value="paymongo">Online Payment (GCash, Maya, GrabPay)</option>
                                     <option value="cash">Cash on Delivery (COD)</option>
                                 </select>
                                 <div class="invalid-feedback">Please select a payment method</div>
@@ -657,12 +758,180 @@ $stmt->close();
     <script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
 
     <script>
-        const createRequest = new CreateRequest({
-            formSelector: "#create-booking-form",
-            submitButtonSelector: "#submit-btn",
-            callback: (err, res) => err ? console.error("Form submission error:", err) : console.log(
-                "Form submitted successfully:", res)
+        // Custom booking form handler for PayMongo integration
+        class BookingFormHandler {
+            constructor() {
+                this.form = document.getElementById('create-booking-form');
+                this.submitButton = document.getElementById('submit-btn');
+                this.originalButtonText = this.submitButton.innerHTML;
+                this.init();
+            }
+
+            init() {
+                this.form.addEventListener('submit', (e) => this.handleSubmit(e));
+            }
+
+            async handleSubmit(e) {
+                e.preventDefault();
+                
+                // Show confirmation dialog
+                const confirmed = await this.showConfirmation();
+                if (!confirmed) return;
+
+                // Validate form
+                if (!this.validateForm()) return;
+
+                // Show loading state
+                this.setLoadingState(true);
+
+                try {
+                    // Prepare form data
+                    const formData = new FormData(this.form);
+                    
+                    // Make API request
+                    const response = await fetch(this.form.action, {
+                        method: 'POST',
+                        body: formData
+                    });
+
+                    const data = await response.json();
+                    
+                    if (data.status === 'success') {
+                        await this.handleSuccess(data);
+                    } else {
+                        await this.handleError(data);
+                    }
+                } catch (error) {
+                    console.error('Form submission error:', error);
+                    await this.handleError({ message: 'Network error. Please try again.' });
+                } finally {
+                    this.setLoadingState(false);
+                }
+            }
+
+            async showConfirmation() {
+                return new Promise((resolve) => {
+                    Swal.fire({
+                        title: "Confirm Booking",
+                        text: "Are you sure you want to create this booking?",
+                        icon: "question",
+                        showCancelButton: true,
+                        confirmButtonText: "Yes, book it!",
+                        cancelButtonText: "Cancel",
+                        confirmButtonColor: "#6f42c1"
+                    }).then((result) => {
+                        resolve(result.isConfirmed);
+                    });
+                });
+            }
+
+            validateForm() {
+                // Check if pickup location is selected
+                const pickupLocation = document.getElementById('pickup').value;
+                if (!pickupLocation || pickupLocation.trim() === '') {
+                    showNotification('Please enter a pickup location', 'error');
+                    return false;
+                }
+
+                // Check if coordinates are set
+                const pickupLat = document.getElementById('pickup_lat').value;
+                const pickupLng = document.getElementById('pickup_lng').value;
+                const dropoffLat = document.getElementById('dropoff_lat').value;
+                const dropoffLng = document.getElementById('dropoff_lng').value;
+
+                if (!pickupLat || !pickupLng || !dropoffLat || !dropoffLng) {
+                    showNotification('Please select valid pickup and drop-off locations on the map', 'error');
+                    return false;
+                }
+
+                return true;
+            }
+
+            setLoadingState(loading) {
+                if (loading) {
+                    this.submitButton.disabled = true;
+                    this.submitButton.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Creating Booking...';
+                } else {
+                    this.submitButton.disabled = false;
+                    this.submitButton.innerHTML = this.originalButtonText;
+                }
+            }
+
+            async handleSuccess(data) {
+                console.log("Booking created successfully:", data);
+                
+                if (data.payment_method === 'paymongo' && data.checkout_url) {
+                    // Show redirect message and redirect to PayMongo
+                    await Swal.fire({
+                        title: "Redirecting to Payment",
+                        text: "Please complete your payment to confirm your booking.",
+                        icon: "info",
+                        showConfirmButton: false,
+                        timer: 2000,
+                        timerProgressBar: true
+                    });
+                    
+                    // Redirect to PayMongo checkout
+                    window.location.href = data.checkout_url;
+                } else {
+                    // Show success message for cash payments
+                    await Swal.fire({
+                        title: "Booking Created!",
+                        text: data.message || "Your booking has been created successfully!",
+                        icon: "success",
+                        confirmButtonText: "View Dashboard",
+                        confirmButtonColor: "#28a745"
+                    });
+                    
+                    // Redirect to dashboard
+                    window.location.href = '../customer/dashboard.php';
+                }
+            }
+
+            async handleError(data) {
+                console.error("Booking creation failed:", data);
+                
+                await Swal.fire({
+                    title: "Booking Failed",
+                    text: data.message || "Something went wrong. Please try again later.",
+                    icon: "error",
+                    confirmButtonText: "Try Again",
+                    confirmButtonColor: "#dc3545"
+                });
+            }
+        }
+
+        // Initialize the custom booking form handler
+        const bookingHandler = new BookingFormHandler();
+
+        // Debug: Log form data before submission (for debugging purposes)
+        document.getElementById('create-booking-form').addEventListener('submit', function(e) {
+            const formData = new FormData(this);
+            console.log('Form data being submitted:');
+            for (let [key, value] of formData.entries()) {
+                console.log(key + ': ' + value);
+            }
         });
+
+        // Notification function
+        function showNotification(message, type) {
+            const notification = document.createElement('div');
+            notification.className = `alert alert-${type === 'success' ? 'success' : type === 'error' ? 'danger' : 'info'} alert-dismissible fade show position-fixed`;
+            notification.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+            notification.innerHTML = `
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            
+            document.body.appendChild(notification);
+            
+            // Auto remove after 5 seconds
+            setTimeout(() => {
+                if (notification.parentNode) {
+                    notification.parentNode.removeChild(notification);
+                }
+            }, 5000);
+        }
 
         const vehicleBasePrice = parseFloat(<?= json_encode($selectedVehicle['baseprice']) ?>);
         const vehicleRatePerKm = parseFloat(<?= json_encode($selectedVehicle['rateperkm']) ?>);
@@ -839,39 +1108,76 @@ $stmt->close();
 
 
         function initMap() {
-
-            let defaultCenter = [14.5995, 120.9842];
-
+            let defaultCenter = [14.5995, 120.9842]; // Manila coordinates
 
             map = L.map('map').setView(defaultCenter, 13);
 
-
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            // Add multiple tile layers for better map experience
+            const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                 attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-            }).addTo(map);
+            });
 
+            const cartoLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
+            });
+
+            // Add layer control
+            const baseMaps = {
+                "OpenStreetMap": osmLayer,
+                "CartoDB": cartoLayer
+            };
+
+            L.control.layers(baseMaps).addTo(map);
+            osmLayer.addTo(map);
+
+            // Create custom marker icons with better styling
+            const pickupIcon = L.divIcon({
+                className: 'custom-marker pickup-marker',
+                html: '<div class="marker-content"><i class="bi bi-geo-alt-fill"></i><span>A</span></div>',
+                iconSize: [40, 40],
+                iconAnchor: [20, 40],
+                popupAnchor: [0, -40]
+            });
+
+            const dropoffIcon = L.divIcon({
+                className: 'custom-marker dropoff-marker',
+                html: '<div class="marker-content"><i class="bi bi-geo-alt-fill"></i><span>B</span></div>',
+                iconSize: [40, 40],
+                iconAnchor: [20, 40],
+                popupAnchor: [0, -40]
+            });
 
             pickupMarker = L.marker(defaultCenter, {
                 draggable: true,
-                icon: L.divIcon({
-                    className: 'marker-icon marker-start',
-                    html: 'A',
-                    iconSize: [32, 32]
-                })
+                icon: pickupIcon
             }).addTo(map);
 
             dropoffMarker = L.marker(defaultCenter, {
                 draggable: true,
-                icon: L.divIcon({
-                    className: 'marker-icon marker-end',
-                    html: 'B',
-                    iconSize: [32, 32]
-                })
+                icon: dropoffIcon
             }).addTo(map);
 
-
+            // Initially hide markers
             pickupMarker.setOpacity(0);
             dropoffMarker.setOpacity(0);
+
+            // Add click event to map for pinning
+            map.on('click', function(e) {
+                const lat = e.latlng.lat;
+                const lng = e.latlng.lng;
+                
+                // Determine which marker to place based on current state
+                if (!pickupMarker.getLatLng().equals(defaultCenter) && !dropoffMarker.getLatLng().equals(defaultCenter)) {
+                    // Both markers are set, ask user which one to replace
+                    showMarkerSelectionModal(lat, lng);
+                } else if (pickupMarker.getLatLng().equals(defaultCenter)) {
+                    // Place pickup marker
+                    placePickupMarker(lat, lng);
+                } else {
+                    // Place dropoff marker
+                    placeDropoffMarker(lat, lng);
+                }
+            });
 
 
             routingControl = L.Routing.control({
@@ -933,6 +1239,90 @@ $stmt->close();
 
             setupAutocomplete('pickup');
             setupAutocomplete('dropoff');
+            
+            // Add map control event listeners
+            document.getElementById('center-map').addEventListener('click', function() {
+                if (pickupMarker.getOpacity() > 0 && dropoffMarker.getOpacity() > 0) {
+                    // Center on both markers
+                    const group = new L.featureGroup([pickupMarker, dropoffMarker]);
+                    map.fitBounds(group.getBounds().pad(0.1));
+                } else {
+                    // Center on default location
+                    map.setView(defaultCenter, 13);
+                }
+            });
+            
+            document.getElementById('clear-markers').addEventListener('click', function() {
+                pickupMarker.setLatLng(defaultCenter).setOpacity(0);
+                dropoffMarker.setLatLng(defaultCenter).setOpacity(0);
+                document.getElementById('pickup_lat').value = '';
+                document.getElementById('pickup_lng').value = '';
+                document.getElementById('dropoff_lat').value = '';
+                document.getElementById('dropoff_lng').value = '';
+                document.getElementById('pickup').value = '';
+                document.getElementById('dropoff').value = '';
+                routingControl.setWaypoints([]);
+                updatePriceEstimate(0);
+            });
+        }
+
+        // Helper functions for map pinning
+        function placePickupMarker(lat, lng) {
+            pickupMarker.setLatLng([lat, lng]).setOpacity(1);
+            document.getElementById('pickup_lat').value = lat;
+            document.getElementById('pickup_lng').value = lng;
+            reverseGeocode({lat: lat, lng: lng}, 'pickup');
+            calculateRouteAndPrice();
+            showNotification('Pickup location pinned!', 'success');
+        }
+
+        function placeDropoffMarker(lat, lng) {
+            dropoffMarker.setLatLng([lat, lng]).setOpacity(1);
+            document.getElementById('dropoff_lat').value = lat;
+            document.getElementById('dropoff_lng').value = lng;
+            reverseGeocode({lat: lat, lng: lng}, 'dropoff');
+            calculateRouteAndPrice();
+            showNotification('Drop-off location pinned!', 'success');
+        }
+
+        function showMarkerSelectionModal(lat, lng) {
+            const modal = document.createElement('div');
+            modal.className = 'marker-modal';
+            modal.innerHTML = `
+                <div class="marker-modal-content">
+                    <h5>Select Marker to Replace</h5>
+                    <p class="text-muted">Click on the map to place a marker. Which marker would you like to replace?</p>
+                    <div class="d-grid gap-2">
+                        <button class="btn btn-success" onclick="replacePickupMarker(${lat}, ${lng})">
+                            <i class="bi bi-geo-alt me-2"></i>Replace Pickup (A)
+                        </button>
+                        <button class="btn btn-danger" onclick="replaceDropoffMarker(${lat}, ${lng})">
+                            <i class="bi bi-geo-alt-fill me-2"></i>Replace Drop-off (B)
+                        </button>
+                        <button class="btn btn-outline-secondary" onclick="closeMarkerModal()">
+                            Cancel
+                        </button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+        }
+
+        function replacePickupMarker(lat, lng) {
+            placePickupMarker(lat, lng);
+            closeMarkerModal();
+        }
+
+        function replaceDropoffMarker(lat, lng) {
+            placeDropoffMarker(lat, lng);
+            closeMarkerModal();
+        }
+
+        function closeMarkerModal() {
+            const modal = document.querySelector('.marker-modal');
+            if (modal) {
+                modal.remove();
+            }
         }
 
 
@@ -940,7 +1330,7 @@ $stmt->close();
 
 
         function geocodeAddress(address, type) {
-            const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}`;
+            const url = `controller/geocoding-proxy.php?action=geocode&address=${encodeURIComponent(address)}`;
 
             fetch(url)
                 .then(response => response.json())
@@ -989,7 +1379,7 @@ $stmt->close();
 
         // Reverse geocode to get address from coordinates
         function reverseGeocode(latLng, type) {
-            const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latLng.lat}&lon=${latLng.lng}`;
+            const url = `controller/geocoding-proxy.php?action=reverse&lat=${latLng.lat}&lng=${latLng.lng}`;
 
             fetch(url)
                 .then(response => response.json())

@@ -25,12 +25,9 @@ if (!isset($_SESSION['auth']['user_id'])) {
     exit;
 }
 
-$request_body = json_decode(file_get_contents('php://input'), true);
 
-if (json_last_error() !== JSON_ERROR_NONE) {
-    echo json_encode(['status' => 'error', 'message' => 'Request body is not valid JSON', 'http_code' => 400]);
-    exit;
-}
+// form body
+$request_body = $_POST;
 
 
 if (!isset($request_body['vehicle_id']) || $request_body['vehicle_id'] === '') {
@@ -168,6 +165,21 @@ $total_price = filter_var($request_body['total_price'], FILTER_SANITIZE_STRING);
 $total_weight = filter_var($request_body['total_weight'], FILTER_SANITIZE_STRING);
 $items_count = filter_var($request_body['items_count'], FILTER_SANITIZE_STRING);
 $payment_method = filter_var($request_body['payment_method'], FILTER_SANITIZE_STRING);
+
+// Debug: Log the received payment method
+error_log("Received payment_method: '" . $payment_method . "' (length: " . strlen($payment_method) . ")");
+error_log("Raw payment_method bytes: " . bin2hex($payment_method));
+
+// Validate payment method against allowed ENUM values
+$allowed_payment_methods = ['cash', 'gcash', 'maya', 'bank_transfer', 'paymongo'];
+if (!in_array($payment_method, $allowed_payment_methods)) {
+    echo json_encode([
+        'status' => 'error',
+        'message' => 'Invalid payment method. Allowed values: ' . implode(', ', $allowed_payment_methods),
+        'http_code' => 400
+    ]);
+    exit;
+}
 $notes = isset($request_body['notes']) ? filter_var($request_body['notes'], FILTER_SANITIZE_STRING) : '';
 $user_id = $_SESSION['auth']['user_id'];
 
@@ -390,6 +402,9 @@ if ($stmt->execute()) {
 
     $amount_received = 0;
 
+    // Debug: Log payment method before database insert
+    error_log("About to insert payment_method: '" . $payment_method . "' (length: " . strlen($payment_method) . ")");
+
     $stmt->bind_param(
         "ssssssss",
         $payment_id,
@@ -405,6 +420,84 @@ if ($stmt->execute()) {
     if ($stmt->execute()) {
         // Payment record created successfully
         $stmt->close();
+        
+        // If PayMongo payment method, create checkout session
+        if ($payment_method === 'paymongo') {
+            require_once '../../function/PayMongoService.php';
+            
+            try {
+                $paymongo = new PayMongoService();
+                
+                // Get user details
+                $user_stmt = $conn->prepare("SELECT full_name, email_address, contact_number FROM users WHERE uid = ?");
+                $user_stmt->bind_param("s", $user_id);
+                $user_stmt->execute();
+                $user = $user_stmt->get_result()->fetch_assoc();
+                
+                // Prepare booking data
+                $bookingData = [
+                    'booking_id' => $booking_id,
+                    'vehicle_name' => $vehicle['name'],
+                    'pickup_location' => $pickup_location,
+                    'dropoff_location' => $dropoff_location,
+                    'date' => $date,
+                    'time' => $time
+                ];
+                
+                // Prepare user data
+                $userData = [
+                    'full_name' => $user['full_name'],
+                    'email_address' => $user['email_address'],
+                    'contact_number' => $user['contact_number']
+                ];
+                
+                // Create concise description (max 200 chars to leave room for truncation)
+                $description = "Booking: {$vehicle['name']} | {$pickup_location} to {$dropoff_location} | {$date} {$time}";
+                
+                // Create checkout session
+                $response = $paymongo->createCheckoutSession($bookingData, $userData, $total_price, $description);
+                
+                if (isset($response['data']['id'])) {
+                    $checkoutSessionId = $response['data']['id'];
+                    $checkoutUrl = $response['data']['attributes']['checkout_url'];
+                    
+                    // Update payment record with PayMongo details
+                    $update_stmt = $conn->prepare("
+                        UPDATE payments 
+                        SET gateway_reference = ?, gateway_url = ?
+                        WHERE booking_id = ?
+                    ");
+                    $update_stmt->bind_param("sss", $checkoutSessionId, $checkoutUrl, $booking_id);
+                    $update_stmt->execute();
+                    
+                    echo json_encode([
+                        'status' => 'success',
+                        'message' => 'Booking created successfully. Redirecting to payment...',
+                        'booking_id' => $booking_id,
+                        'checkout_url' => $checkoutUrl,
+                        'payment_method' => 'paymongo',
+                        'http_code' => 200
+                    ]);
+                } else {
+                    throw new Exception('Failed to create checkout session');
+                }
+            } catch (Exception $e) {
+                echo json_encode([
+                    'status' => 'error',
+                    'message' => 'Booking created but payment setup failed: ' . $e->getMessage(),
+                    'booking_id' => $booking_id,
+                    'http_code' => 500
+                ]);
+            }
+        } else {
+            // For cash payments, just return success
+            echo json_encode([
+                'status' => 'success',
+                'message' => 'Booking created successfully',
+                'booking_id' => $booking_id,
+                'http_code' => 200
+            ]);
+        }
     } else {
         echo json_encode([
             'status' => 'error',
@@ -413,14 +506,6 @@ if ($stmt->execute()) {
         ]);
         exit;
     }
-
-
-    echo json_encode([
-        'status' => 'success',
-        'message' => 'Booking created successfully',
-        'booking_id' => $booking_id,
-        'http_code' => 200
-    ]);
 } else {
     echo json_encode([
         'status' => 'error',
