@@ -9,10 +9,7 @@ RewriteRule ^(config|vendor|view)(/|$) - [F,L]
     Require all denied
 </FilesMatch>
 
-# Block direct access to /controller/ via URL unless coming from your site (local + live)
-# RewriteCond %{HTTP_REFERER} !^http://localhost/exam/ [NC]
-# RewriteCond %{HTTP_REFERER} !^https://exam-management\.nasa-ph\.com/ [NC]
-# RewriteRule ^controller(/|$) - [F,L]
+
 
 # Route everything else to index.php if not a real file or directory
 RewriteCond %{REQUEST_FILENAME} !-f

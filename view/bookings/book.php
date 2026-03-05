@@ -23,17 +23,7 @@ $selectedVehicle['baseprice'] = $selectedVehicle['baseprice'] ?? 0;
 $selectedVehicle['rateperkm'] = $selectedVehicle['rateperkm'] ?? 0;
 $selectedVehicle['totalcapacitykg'] = $selectedVehicle['totalcapacitykg'] ?? 0;
 
-// retrieve all comments for the selected vehicle
 
-$stmt = $conn->prepare("SELECT comments.*, users.full_name AS user_name FROM comments
- JOIN users ON comments.user_id = users.uid
- JOIN bookings ON comments.booking_id = bookings.booking_id
- WHERE bookings.vehicle_id = ?");
-$stmt->bind_param("s", $selectedVehicleId);
-$stmt->execute();
-$result = $stmt->get_result();
-$comments = $result->fetch_all(MYSQLI_ASSOC);
-$stmt->close();
 
 
 
@@ -512,15 +502,16 @@ $stmt->close();
                             <div class="marker-icon marker-end">B</div>
                             <div>Drop-off Location</div>
                         </div>
-                        
+
                         <div class="alert alert-info mb-3">
                             <i class="bi bi-info-circle me-2"></i>
                             <strong>Map Instructions:</strong>
                             <ul class="mb-0 mt-2">
-                                <li>Click anywhere on the map to pin locations</li>
-                                <li>Type addresses in the fields below for automatic geocoding</li>
+                                <li><strong>Click on the map to drop a pin</strong> for pickup (first click) and
+                                    drop-off (second click)</li>
                                 <li>Drag markers to fine-tune positions</li>
-                                <li>Use the controls to center the map or clear markers</li>
+                                <li>Optionally type addresses in the fields to search</li>
+                                <li>Service area is limited to <strong>Bataan province</strong></li>
                             </ul>
                         </div>
 
@@ -550,51 +541,24 @@ $stmt->close();
                                 </div>
                                 <div class="col-md-6">
                                     <div class="d-flex justify-content-between">
-                                        <span><i class="bi bi-currency-dollar info-icon"></i>Estimated Price:</span>
-                                        <strong id="price-estimate">₱0.00</strong>
+                                        <span>Base Price:</span>
+                                        <span>₱<?= number_format($selectedVehicle['baseprice'], 2) ?></span>
                                     </div>
-                                    <div class="mt-3">
-                                        <div class="d-flex justify-content-between">
-                                            <span>Base Price:</span>
-                                            <span>₱<?= number_format($selectedVehicle['baseprice'], 2) ?></span>
-                                        </div>
-                                        <div class="d-flex justify-content-between">
-                                            <span>Distance Rate:</span>
-                                            <span>₱<?= number_format($selectedVehicle['rateperkm'], 2) ?>/km</span>
-                                        </div>
+                                    <div class="d-flex justify-content-between mt-2">
+                                        <span>Distance Rate:</span>
+                                        <span>₱<?= number_format($selectedVehicle['rateperkm'], 2) ?>/km</span>
+                                    </div>
+                                    <hr class="my-2">
+                                    <div class="d-flex justify-content-between">
+                                        <strong><i class="bi bi-currency-dollar info-icon"></i>Estimated Price:</strong>
+                                        <strong id="price-estimate" class="text-primary fs-5">₱0.00</strong>
                                     </div>
                                 </div>
                             </div>
                         </div>
 
 
-                        <h3 class="section-title mt-4"><i class="bi bi-chat-dots me-2"></i>Comments</h3>
-                        <div id="comments-container">
-                            <?php if (!empty($comments)): ?>
-                                <?php foreach ($comments as $comment): ?>
-                                    <div class="comment mb-3 p-3 rounded shadow-sm bg-light">
-                                        <div class="d-flex align-items-center mb-2">
-                                            <span class="fw-semibold me-2"><?= htmlspecialchars($comment['user_name']) ?></span>
-                                            <span class="badge bg-warning text-dark me-2">
-                                                <?php for ($i = 1; $i <= 5; $i++): ?>
-                                                    <?php if ($i <= (int)$comment['comment_rating']): ?>
-                                                        <i class="bi bi-star-fill"></i>
-                                                    <?php else: ?>
-                                                        <i class="bi bi-star"></i>
-                                                    <?php endif; ?>
-                                                <?php endfor; ?>
-                                            </span>
-                                            <small class="text-muted ms-auto">
-                                                <?= isset($comment['created_at']) ? date('M d, Y', strtotime($comment['created_at'])) : '' ?>
-                                            </small>
-                                        </div>
-                                        <p class="mb-0"><?= nl2br(htmlspecialchars($comment['comment'])) ?></p>
-                                    </div>
-                                <?php endforeach; ?>
-                            <?php else: ?>
-                                <p class="text-muted fst-italic">No comments yet for this vehicle.</p>
-                            <?php endif; ?>
-                        </div>
+
 
                     </div>
                 </div>
@@ -604,7 +568,8 @@ $stmt->close();
                     <div class="booking-card">
                         <h3 class="section-title"><i class="bi bi-calendar-check me-2"></i>Booking Details</h3>
 
-                        <form method="post" action="controller/booking/create-booking.php" id="create-booking-form" class="needs-validation" novalidate>
+                        <form method="post" action="controller/booking/create-booking.php" id="create-booking-form"
+                            class="needs-validation" novalidate>
                             <input type="hidden" name="vehicle_id" value="<?= htmlspecialchars($selectedVehicleId) ?>">
                             <input type="hidden" id="pickup_lat" name="pickup_lat" required>
                             <input type="hidden" id="pickup_lng" name="pickup_lng" required>
@@ -616,19 +581,24 @@ $stmt->close();
                                 <div class="d-flex justify-content-between align-items-center">
                                     <div>
                                         <h6 class="mb-1"><?= htmlspecialchars($selectedVehicle['name']) ?></h6>
-                                        <small class="text-muted"><?= htmlspecialchars($selectedVehicle['platenumber']) ?> | <?= htmlspecialchars($selectedVehicle['type']) ?></small>
+                                        <small
+                                            class="text-muted"><?= htmlspecialchars($selectedVehicle['platenumber']) ?>
+                                            | <?= htmlspecialchars($selectedVehicle['type']) ?></small>
                                     </div>
                                     <div class="text-end">
-                                        <div>Capacity: <?= htmlspecialchars($selectedVehicle['totalcapacitykg']) ?>kg</div>
-                                        <small class="text-muted">Base: ₱<?= number_format($selectedVehicle['baseprice'], 2) ?></small>
+                                        <div>Capacity: <?= htmlspecialchars($selectedVehicle['totalcapacitykg']) ?>kg
+                                        </div>
+                                        <small class="text-muted">Base:
+                                            ₱<?= number_format($selectedVehicle['baseprice'], 2) ?></small>
                                     </div>
                                 </div>
                             </div>
 
                             <div class="mb-4">
-                                <label for="pickup" class="form-label"><i class="bi bi-geo-alt me-1"></i>Pickup Location</label>
-                                <input type="text" id="pickup" name="pickup_location" class="form-control form-control-lg"
-                                    placeholder="Enter pickup address" required>
+                                <label for="pickup" class="form-label"><i class="bi bi-geo-alt me-1"></i>Pickup
+                                    Location</label>
+                                <input type="text" id="pickup" name="pickup_location"
+                                    class="form-control form-control-lg" placeholder="Enter pickup address" required>
                                 <div class="invalid-feedback">Please select a pickup location</div>
 
                                 <div class="form-check current-location-checkbox">
@@ -640,36 +610,58 @@ $stmt->close();
                             </div>
 
                             <div class="mb-4">
-                                <label for="dropoff" class="form-label"><i class="bi bi-geo-alt-fill me-1"></i>Drop-off Location</label>
-                                <input type="text" id="dropoff" name="dropoff_location" class="form-control form-control-lg"
-                                    placeholder="Enter drop-off address" required>
+                                <label for="dropoff" class="form-label"><i class="bi bi-geo-alt-fill me-1"></i>Drop-off
+                                    Location</label>
+                                <input type="text" id="dropoff" name="dropoff_location"
+                                    class="form-control form-control-lg" placeholder="Enter drop-off address" required>
                                 <div class="invalid-feedback">Please select a drop-off location</div>
                             </div>
 
                             <div class="row g-3 mb-4">
                                 <div class="col-md-6">
-                                    <label for="date" class="form-label"><i class="bi bi-calendar me-1"></i>Move Date</label>
+                                    <label for="date" class="form-label"><i class="bi bi-calendar me-1"></i>Move
+                                        Date</label>
                                     <input type="date" id="date" name="date" class="form-control form-control-lg"
-                                        min="<?= date('Y-m-d') ?>" required>
-                                    <div class="invalid-feedback">Please select a valid date</div>
+                                        min="<?= date('Y-m-d') ?>" max="<?= date('Y-m-d', strtotime('+3 months')) ?>"
+                                        required>
+                                    <div class="invalid-feedback">Please select a date within the next 3 months</div>
                                 </div>
                                 <div class="col-md-6">
-                                    <label for="time" class="form-label"><i class="bi bi-clock me-1"></i>Preferred Time</label>
-                                    <input type="time" id="time" name="time" class="form-control form-control-lg"
-                                        min="08:00" max="20:00" required>
-                                    <div class="invalid-feedback">Please select time between 8AM-8PM</div>
+                                    <label for="time" class="form-label"><i class="bi bi-clock me-1"></i>Preferred
+                                        Time</label>
+                                    <select id="time" name="time" class="form-select form-select-lg" required>
+                                        <option value="" disabled selected>Select time</option>
+                                        <?php
+                                        $start = strtotime('07:00');
+                                        $end = strtotime('20:00');
+                                        for ($t = $start; $t <= $end; $t += 1800) {
+                                            $val = date('H:i', $t);
+                                            $label = date('g:i A', $t);
+                                            echo "<option value=\"$val\">$label</option>";
+                                        }
+                                        ?>
+                                    </select>
+                                    <div class="invalid-feedback">Please select a preferred time</div>
                                 </div>
                             </div>
 
                             <div class="row g-3 mb-4">
                                 <div class="col-md-6">
-                                    <label for="total_weight" class="form-label"><i class="bi bi-box-seam me-1"></i>Total Weight (kg)</label>
-                                    <input type="number" id="total_weight" name="total_weight"
-                                        class="form-control form-control-lg" min="1"
-                                        max="<?= htmlspecialchars($selectedVehicle['totalcapacitykg']) ?>"
-                                        required>
+                                    <label for="total_weight" class="form-label"><i
+                                            class="bi bi-box-seam me-1"></i>Total Weight</label>
+                                    <div class="input-group">
+                                        <input type="number" id="total_weight" name="total_weight"
+                                            class="form-control form-control-lg" min="1" required>
+                                        <select id="weight_unit" class="form-select form-select-lg"
+                                            style="max-width: 110px;">
+                                            <option value="kg" selected>kg</option>
+                                            <option value="tons">tons</option>
+                                            <option value="lots">lots</option>
+                                        </select>
+                                    </div>
                                     <div class="d-flex justify-content-between mt-2">
-                                        <small class="instruction-text">Max capacity: <?= htmlspecialchars($selectedVehicle['totalcapacitykg']) ?>kg</small>
+                                        <small class="instruction-text">Max capacity:
+                                            <?= htmlspecialchars($selectedVehicle['totalcapacitykg']) ?>kg</small>
                                         <small id="weight-percentage">0%</small>
                                     </div>
                                     <div class="progress-container mt-1">
@@ -678,7 +670,8 @@ $stmt->close();
                                     <div class="invalid-feedback">Weight exceeds vehicle capacity or is invalid.</div>
                                 </div>
                                 <div class="col-md-6">
-                                    <label for="items_count" class="form-label"><i class="bi bi-boxes me-1"></i>Number of Items</label>
+                                    <label for="items_count" class="form-label"><i class="bi bi-boxes me-1"></i>Number
+                                        of Items</label>
                                     <input type="number" id="items_count" name="items_count"
                                         class="form-control form-control-lg" min="1" required>
                                     <div class="invalid-feedback">Please enter item count</div>
@@ -694,7 +687,8 @@ $stmt->close();
                                 <label for="payment_method" class="form-label">
                                     <i class="bi bi-credit-card me-1"></i>Payment Method
                                 </label>
-                                <select id="payment_method" name="payment_method" class="form-select form-select-lg" required>
+                                <select id="payment_method" name="payment_method" class="form-select form-select-lg"
+                                    required>
                                     <option value="" disabled selected>Select payment method</option>
                                     <option value="paymongo">Online Payment (GCash, Maya, GrabPay)</option>
                                     <option value="cash">Cash on Delivery (COD)</option>
@@ -708,21 +702,34 @@ $stmt->close();
                                 <ul class="mb-3">
                                     <li>Prepare the exact amount upon delivery or rental handover.</li>
                                     <li>COD is only available within approved service areas.</li>
-                                    <li>Failure to pay on delivery may result in account restrictions or denial of future bookings.</li>
+                                    <li>Failure to pay on delivery may result in account restrictions or denial of
+                                        future bookings.</li>
                                 </ul>
                                 <div class="form-check">
                                     <input class="form-check-input" type="checkbox" id="cod_agree" required>
                                     <label class="form-check-label" for="cod_agree">
                                         I agree to the Cash on Delivery policy
                                     </label>
-                                    <div class="invalid-feedback">You must agree to the COD policy before proceeding.</div>
+                                    <div class="invalid-feedback">You must agree to the COD policy before proceeding.
+                                    </div>
                                 </div>
                             </div>
 
                             <input type="hidden" id="total_price" name="total_price" class="form-control">
                             <input type="hidden" id="total_distance" name="total_distance" class="form-control">
 
-                            <button type="submit" class="btn btn-primary btn-lg w-100 mt-2 py-3 fw-bold" id="submit-btn">
+                            <div class="mb-3 form-check mt-3">
+                                <input type="checkbox" class="form-check-input" id="privacy_agreement"
+                                    name="privacy_agreement" required>
+                                <label class="form-check-label" for="privacy_agreement">
+                                    I agree to the <a href="privacy-policy" target="_blank" class="text-primary">Privacy
+                                        Policy</a>
+                                </label>
+                                <div class="invalid-feedback">You must agree to the Privacy Policy before booking.</div>
+                            </div>
+
+                            <button type="submit" class="btn btn-primary btn-lg w-100 mt-2 py-3 fw-bold"
+                                id="submit-btn">
                                 <i class="bi bi-check-circle me-2"></i>Confirm Booking
                             </button>
                         </form>
@@ -733,7 +740,7 @@ $stmt->close();
     </div>
 
     <script>
-        document.getElementById('payment_method').addEventListener('change', function() {
+        document.getElementById('payment_method').addEventListener('change', function () {
             const codPolicy = document.getElementById('cod_policy');
             const codAgree = document.getElementById('cod_agree');
 
@@ -758,6 +765,10 @@ $stmt->close();
     <script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
 
     <script>
+        // Bataan province center and bounds globally accessible
+        const devDefaultCenter = [14.6417, 120.4818];
+        const bataanBounds = L.latLngBounds([14.42, 120.30], [14.90, 120.70]);
+
         // Custom booking form handler for PayMongo integration
         class BookingFormHandler {
             constructor() {
@@ -773,7 +784,7 @@ $stmt->close();
 
             async handleSubmit(e) {
                 e.preventDefault();
-                
+
                 // Show confirmation dialog
                 const confirmed = await this.showConfirmation();
                 if (!confirmed) return;
@@ -787,7 +798,7 @@ $stmt->close();
                 try {
                     // Prepare form data
                     const formData = new FormData(this.form);
-                    
+
                     // Make API request
                     const response = await fetch(this.form.action, {
                         method: 'POST',
@@ -795,7 +806,7 @@ $stmt->close();
                     });
 
                     const data = await response.json();
-                    
+
                     if (data.status === 'success') {
                         await this.handleSuccess(data);
                     } else {
@@ -844,6 +855,16 @@ $stmt->close();
                     return false;
                 }
 
+                // Check Bataan bounds
+                const pLatLng = L.latLng(pickupLat, pickupLng);
+                const dLatLng = L.latLng(dropoffLat, dropoffLng);
+                if (typeof bataanBounds !== 'undefined') {
+                    if (!bataanBounds.contains(pLatLng) || !bataanBounds.contains(dLatLng)) {
+                        showNotification('Both pickup and drop-off locations must be within Bataan province.', 'error');
+                        return false;
+                    }
+                }
+
                 return true;
             }
 
@@ -859,7 +880,7 @@ $stmt->close();
 
             async handleSuccess(data) {
                 console.log("Booking created successfully:", data);
-                
+
                 if (data.payment_method === 'paymongo' && data.checkout_url) {
                     // Show redirect message and redirect to PayMongo
                     await Swal.fire({
@@ -870,7 +891,7 @@ $stmt->close();
                         timer: 2000,
                         timerProgressBar: true
                     });
-                    
+
                     // Redirect to PayMongo checkout
                     window.location.href = data.checkout_url;
                 } else {
@@ -882,7 +903,7 @@ $stmt->close();
                         confirmButtonText: "View Dashboard",
                         confirmButtonColor: "#28a745"
                     });
-                    
+
                     // Redirect to dashboard
                     window.location.href = '../customer/dashboard.php';
                 }
@@ -890,7 +911,7 @@ $stmt->close();
 
             async handleError(data) {
                 console.error("Booking creation failed:", data);
-                
+
                 await Swal.fire({
                     title: "Booking Failed",
                     text: data.message || "Something went wrong. Please try again later.",
@@ -905,7 +926,7 @@ $stmt->close();
         const bookingHandler = new BookingFormHandler();
 
         // Debug: Log form data before submission (for debugging purposes)
-        document.getElementById('create-booking-form').addEventListener('submit', function(e) {
+        document.getElementById('create-booking-form').addEventListener('submit', function (e) {
             const formData = new FormData(this);
             console.log('Form data being submitted:');
             for (let [key, value] of formData.entries()) {
@@ -922,9 +943,9 @@ $stmt->close();
                 ${message}
                 <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
             `;
-            
+
             document.body.appendChild(notification);
-            
+
             // Auto remove after 5 seconds
             setTimeout(() => {
                 if (notification.parentNode) {
@@ -974,6 +995,16 @@ $stmt->close();
             function selectSuggestion(index) {
                 if (index >= 0 && index < suggestions.length) {
                     const result = suggestions[index];
+                    
+                    // Validate bounds before accepting the suggestion
+                    const latLng = L.latLng(result.geometry.lat, result.geometry.lng);
+                    if (typeof bataanBounds !== 'undefined' && !bataanBounds.contains(latLng)) {
+                        showNotification(`The selected location "${result.formatted}" is outside Bataan.`, 'error');
+                        input.value = '';
+                        hideSuggestions();
+                        return;
+                    }
+
                     input.value = result.formatted;
                     hideSuggestions();
 
@@ -999,7 +1030,7 @@ $stmt->close();
             }
 
             // Fetch suggestions from OpenCage
-            input.addEventListener('input', function() {
+            input.addEventListener('input', function () {
                 const query = input.value.trim();
 
                 // Abort previous request if exists
@@ -1022,11 +1053,11 @@ $stmt->close();
                 const signal = currentController.signal;
 
                 // Build OpenCage API URL
-                const url = `https://api.opencagedata.com/geocode/v1/json?q=${encodeURIComponent(query)}&key=${OPENCAGE_API_KEY}&limit=5&countrycode=ph`;
+                const url = `https://api.opencagedata.com/geocode/v1/json?q=${encodeURIComponent(query)}&key=${OPENCAGE_API_KEY}&limit=5&countrycode=ph&bounds=120.30,14.42,120.70,14.90`;
 
                 fetch(url, {
-                        signal
-                    })
+                    signal
+                })
                     .then(response => response.json())
                     .then(data => {
                         suggestionsContainer.innerHTML = '';
@@ -1044,7 +1075,7 @@ $stmt->close();
                             suggestion.textContent = result.formatted;
                             suggestion.dataset.index = index;
 
-                            suggestion.addEventListener('click', function() {
+                            suggestion.addEventListener('click', function () {
                                 selectSuggestion(index);
                             });
 
@@ -1060,7 +1091,7 @@ $stmt->close();
             });
 
             // Handle keyboard navigation
-            input.addEventListener('keydown', function(e) {
+            input.addEventListener('keydown', function (e) {
                 if (suggestionsContainer.style.display === 'none') return;
 
                 switch (e.key) {
@@ -1094,23 +1125,26 @@ $stmt->close();
             }
 
             // Hide suggestions when clicking outside
-            document.addEventListener('click', function(e) {
+            document.addEventListener('click', function (e) {
                 if (!container.contains(e.target)) {
                     hideSuggestions();
                 }
             });
 
             // Also hide suggestions when input loses focus
-            input.addEventListener('blur', function() {
+            input.addEventListener('blur', function () {
                 setTimeout(hideSuggestions, 200);
             });
         }
 
 
         function initMap() {
-            let defaultCenter = [14.5995, 120.9842]; // Manila coordinates
+            let defaultCenter = devDefaultCenter;
 
-            map = L.map('map').setView(defaultCenter, 13);
+            map = L.map('map', {
+                maxBounds: bataanBounds.pad(0.1),
+                minZoom: 10
+            }).setView(defaultCenter, 11);
 
             // Add multiple tile layers for better map experience
             const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -1162,10 +1196,16 @@ $stmt->close();
             dropoffMarker.setOpacity(0);
 
             // Add click event to map for pinning
-            map.on('click', function(e) {
+            map.on('click', function (e) {
                 const lat = e.latlng.lat;
                 const lng = e.latlng.lng;
-                
+
+                // Validate clicked point is within Bataan bounds
+                if (!bataanBounds.contains(e.latlng)) {
+                    showNotification('Please select a location within Bataan province.', 'error');
+                    return;
+                }
+
                 // Determine which marker to place based on current state
                 if (!pickupMarker.getLatLng().equals(defaultCenter) && !dropoffMarker.getLatLng().equals(defaultCenter)) {
                     // Both markers are set, ask user which one to replace
@@ -1192,18 +1232,38 @@ $stmt->close();
                         opacity: 0.8
                     }]
                 },
-                createMarker: function() {
+                createMarker: function () {
                     return null;
                 }
             }).addTo(map);
 
             // Marker drag events
-            pickupMarker.on('dragend', function(e) {
+            pickupMarker.on('dragend', function (e) {
+                if (!bataanBounds.contains(pickupMarker.getLatLng())) {
+                    showNotification('Selected location is outside Bataan province.', 'error');
+                    pickupMarker.setLatLng(devDefaultCenter).setOpacity(0);
+                    document.getElementById('pickup_lat').value = '';
+                    document.getElementById('pickup_lng').value = '';
+                    document.getElementById('pickup').value = '';
+                    routingControl.setWaypoints([]);
+                    updatePriceEstimate(0);
+                    return;
+                }
                 updatePositionFromMarker('pickup', pickupMarker);
                 calculateRouteAndPrice();
             });
 
-            dropoffMarker.on('dragend', function(e) {
+            dropoffMarker.on('dragend', function (e) {
+                if (!bataanBounds.contains(dropoffMarker.getLatLng())) {
+                    showNotification('Selected location is outside Bataan province.', 'error');
+                    dropoffMarker.setLatLng(devDefaultCenter).setOpacity(0);
+                    document.getElementById('dropoff_lat').value = '';
+                    document.getElementById('dropoff_lng').value = '';
+                    document.getElementById('dropoff').value = '';
+                    routingControl.setWaypoints([]);
+                    updatePriceEstimate(0);
+                    return;
+                }
                 updatePositionFromMarker('dropoff', dropoffMarker);
                 calculateRouteAndPrice();
             });
@@ -1219,14 +1279,36 @@ $stmt->close();
 
 
             const weightInput = document.getElementById('total_weight');
-            if (weightInput) {
-                weightInput.addEventListener('input', function() {
-                    const weight = parseInt(this.value) || 0;
-                    const percentage = Math.min(100, (weight / vehicleMaxCapacity) * 100);
-                    document.getElementById('weight-progress').style.width = `${percentage}%`;
-                    document.getElementById('weight-percentage').textContent = `${Math.round(percentage)}%`;
-                });
+            const weightUnit = document.getElementById('weight_unit');
+
+            function getWeightInKg() {
+                const val = parseFloat(weightInput.value) || 0;
+                const unit = weightUnit.value;
+                if (unit === 'tons') return val * 1000;
+                if (unit === 'lots') return val * 500;
+                return val;
             }
+
+            function updateWeightProgress() {
+                const weightKg = getWeightInKg();
+                const percentage = Math.min(100, (weightKg / vehicleMaxCapacity) * 100);
+                document.getElementById('weight-progress').style.width = `${percentage}%`;
+                document.getElementById('weight-percentage').textContent = `${Math.round(percentage)}%`;
+            }
+
+            if (weightInput) {
+                weightInput.addEventListener('input', updateWeightProgress);
+            }
+            if (weightUnit) {
+                weightUnit.addEventListener('change', updateWeightProgress);
+            }
+
+            // Convert weight to kg before form submit
+            document.getElementById('create-booking-form').addEventListener('submit', function () {
+                const weightKg = getWeightInKg();
+                weightInput.value = Math.round(weightKg);
+                weightUnit.value = 'kg';
+            });
 
             L.control.zoom({
                 position: 'topright'
@@ -1239,9 +1321,9 @@ $stmt->close();
 
             setupAutocomplete('pickup');
             setupAutocomplete('dropoff');
-            
+
             // Add map control event listeners
-            document.getElementById('center-map').addEventListener('click', function() {
+            document.getElementById('center-map').addEventListener('click', function () {
                 if (pickupMarker.getOpacity() > 0 && dropoffMarker.getOpacity() > 0) {
                     // Center on both markers
                     const group = new L.featureGroup([pickupMarker, dropoffMarker]);
@@ -1251,8 +1333,8 @@ $stmt->close();
                     map.setView(defaultCenter, 13);
                 }
             });
-            
-            document.getElementById('clear-markers').addEventListener('click', function() {
+
+            document.getElementById('clear-markers').addEventListener('click', function () {
                 pickupMarker.setLatLng(defaultCenter).setOpacity(0);
                 dropoffMarker.setLatLng(defaultCenter).setOpacity(0);
                 document.getElementById('pickup_lat').value = '';
@@ -1271,7 +1353,7 @@ $stmt->close();
             pickupMarker.setLatLng([lat, lng]).setOpacity(1);
             document.getElementById('pickup_lat').value = lat;
             document.getElementById('pickup_lng').value = lng;
-            reverseGeocode({lat: lat, lng: lng}, 'pickup');
+            reverseGeocode({ lat: lat, lng: lng }, 'pickup');
             calculateRouteAndPrice();
             showNotification('Pickup location pinned!', 'success');
         }
@@ -1280,7 +1362,7 @@ $stmt->close();
             dropoffMarker.setLatLng([lat, lng]).setOpacity(1);
             document.getElementById('dropoff_lat').value = lat;
             document.getElementById('dropoff_lng').value = lng;
-            reverseGeocode({lat: lat, lng: lng}, 'dropoff');
+            reverseGeocode({ lat: lat, lng: lng }, 'dropoff');
             calculateRouteAndPrice();
             showNotification('Drop-off location pinned!', 'success');
         }
@@ -1339,7 +1421,12 @@ $stmt->close();
                         const result = data[0];
                         const lat = parseFloat(result.lat);
                         const lng = parseFloat(result.lon);
+                        const latLng = L.latLng(lat, lng);
 
+                        if (!bataanBounds.contains(latLng)) {
+                            showNotification(`The location "${address}" is outside Bataan province. Please select a valid Bataan location.`, 'error');
+                            return;
+                        }
 
                         document.getElementById(`${type}_lat`).value = lat;
                         document.getElementById(`${type}_lng`).value = lng;
@@ -1415,10 +1502,10 @@ $stmt->close();
                             pickupInput.readOnly = false;
                             checkbox.checked = false;
                         }, {
-                            enableHighAccuracy: true,
-                            timeout: 10000,
-                            maximumAge: 0
-                        }
+                        enableHighAccuracy: true,
+                        timeout: 10000,
+                        maximumAge: 0
+                    }
                     );
                 } else {
                     alert("Geolocation is not supported by this browser.");
@@ -1441,6 +1528,22 @@ $stmt->close();
         // Set pickup location from coordinates
         function setPickupLocation(latLng) {
             const pickupInput = document.getElementById('pickup');
+
+            const ll = L.latLng(latLng.lat, latLng.lng);
+            if (typeof bataanBounds !== 'undefined' && !bataanBounds.contains(ll)) {
+                showNotification('Your current location is outside Bataan province.', 'error');
+                pickupInput.value = "";
+                pickupInput.readOnly = false;
+                document.getElementById('pickup_lat').value = '';
+                document.getElementById('pickup_lng').value = '';
+                if (typeof pickupMarker !== 'undefined' && pickupMarker) {
+                    pickupMarker.setOpacity(0);
+                }
+                const checkbox = document.getElementById('useCurrentLocation');
+                if (checkbox) checkbox.checked = false;
+                calculateRouteAndPrice();
+                return;
+            }
 
             // Update form fields
             document.getElementById('pickup_lat').value = latLng.lat;
@@ -1487,7 +1590,7 @@ $stmt->close();
             routingControl.setWaypoints([origin, destination]);
 
             // Listen for the route calculation
-            routingControl.on('routesfound', function(e) {
+            routingControl.on('routesfound', function (e) {
                 const routes = e.routes;
                 if (routes && routes.length > 0) {
                     const route = routes[0];
@@ -1526,7 +1629,7 @@ $stmt->close();
             'use strict'
             const form = document.getElementById('create-booking-form');
             if (form) {
-                form.addEventListener('submit', function(event) {
+                form.addEventListener('submit', function (event) {
                     let isFormValid = form.checkValidity();
 
                     if (!validateWeight()) {

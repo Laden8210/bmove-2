@@ -18,4 +18,4 @@ CREATE TABLE IF NOT EXISTS report_generations (
     INDEX idx_created_at (created_at),
     
     FOREIGN KEY (generated_by) REFERENCES users(uid) ON DELETE CASCADE ON UPDATE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+);

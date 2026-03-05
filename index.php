@@ -1,4 +1,3 @@
-
 <?php
 
 require 'config/config.php';
@@ -39,11 +38,17 @@ try {
         'driver-dashboard' => ['file' => 'view/driver/dashboard.php', 'title' => 'Driver Dashboard', 'auth_required' => true, 'layout' => 'view/layouts/app.php'],
         'track-driver' => ['file' => 'view/customer/track-driver.php', 'title' => 'Track Driver', 'auth_required' => true, 'layout' => 'view/layouts/app.php'],
         'report' => ['file' => 'view/report/index.php', 'title' => 'Report', 'auth_required' => true, 'layout' => 'view/layouts/app.php'],
-        
+
         // PayMongo Payment Routes
         'payment-success' => ['file' => 'view/payment/success.php', 'title' => 'Payment Success', 'auth_required' => false, 'layout' => 'view/layouts/app.php'],
         'payment-cancel' => ['file' => 'view/payment/cancel.php', 'title' => 'Payment Cancelled', 'auth_required' => false, 'layout' => 'view/layouts/app.php'],
         'paymongo-webhook' => ['file' => 'controller/payment/paymongo-webhook.php', 'title' => 'PayMongo Webhook', 'auth_required' => false, 'layout' => null],
+
+        // Email Verification Route
+        'verify-email' => ['file' => 'controller/auth/verify-email.php', 'title' => 'Verify Email', 'auth_required' => false, 'layout' => null],
+
+        // Privacy Policy
+        'privacy-policy' => ['file' => 'view/home/privacy-policy.php', 'title' => 'Privacy Policy', 'auth_required' => false, 'layout' => null],
     ];
 
 
@@ -103,7 +108,7 @@ try {
 
     echo $_SESSION['auth']['username'] ?? '';
 
-    
+
 
     if ($request === 'dashboard') {
         if ($role === 'admin') {
@@ -121,16 +126,16 @@ try {
     $roleRoutes = [
         'customer' => ['customer-dashboard', 'book', 'create-booking', 'track-driver', ''],
         'driver' => ['driver-dashboard'],
-        'admin' => ['dashboard', 'manage-user-account', 'vehicle', 'bookings', 'about-us', 'report'], 
+        'admin' => ['dashboard', 'manage-user-account', 'vehicle', 'bookings', 'about-us', 'report'],
     ];
 
-    if(!empty($role)) {
-           foreach ($roleRoutes as $roleKey => $allowedRoutes) {
-        if ($role === $roleKey && !in_array($request, $allowedRoutes ) && $routes[$request]['auth_required']) {
-            header('Location: ' . $allowedRoutes[0]);
-            exit;
+    if (!empty($role)) {
+        foreach ($roleRoutes as $roleKey => $allowedRoutes) {
+            if ($role === $roleKey && !in_array($request, $allowedRoutes) && $routes[$request]['auth_required']) {
+                header('Location: ' . $allowedRoutes[0]);
+                exit;
+            }
         }
-    }
     }
 
 

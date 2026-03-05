@@ -29,6 +29,7 @@
                     <th>Contact Number</th>
                     <th>Email Address</th>
                     <th>Account Type</th>
+                    <th>Status</th>
                     <th data-type="date" data-format="YYYY/DD/MM">Date Added</th>
                     <th>Action</th>
                   </tr>
@@ -37,16 +38,29 @@
                   <?php
 
 
-                  $sql = "SELECT uid, username, full_name, contact_number, email_address, account_type, created_at FROM users where account_type != 'customer' and is_deleted = 0 ORDER BY created_at DESC";
+                  $sql = "SELECT uid, username, full_name, contact_number, email_address, account_type, account_status, created_at FROM users where account_type != 'customer' and is_deleted = 0 ORDER BY created_at DESC";
                   $result = $conn->query($sql);
 
                   if ($result && $result->num_rows > 0) {
                     while ($row = $result->fetch_assoc()) {
                       // Badge color based on account type
                       $badgeClass = 'bg-secondary';
-                      if ($row['account_type'] === 'admin') $badgeClass = 'bg-primary';
-                      elseif ($row['account_type'] === 'driver') $badgeClass = 'bg-warning text-dark';
-                      elseif ($row['account_type'] === 'customer') $badgeClass = 'bg-success';
+                      if ($row['account_type'] === 'admin')
+                        $badgeClass = 'bg-primary';
+                      elseif ($row['account_type'] === 'driver')
+                        $badgeClass = 'bg-warning text-dark';
+                      elseif ($row['account_type'] === 'customer')
+                        $badgeClass = 'bg-success';
+
+                      // Badge color based on account status
+                      $statusClass = 'bg-secondary';
+                      $statusText = $row['account_status'] ?? 'Active';
+                      if ($statusText === 'Active')
+                        $statusClass = 'bg-success';
+                      elseif ($statusText === 'Inactive')
+                        $statusClass = 'bg-warning text-dark';
+                      elseif ($statusText === 'Archived')
+                        $statusClass = 'bg-danger';
 
                       echo '<tr>';
 
@@ -55,14 +69,24 @@
                       echo '<td>' . htmlspecialchars($row['contact_number']) . '</td>';
                       echo '<td>' . htmlspecialchars($row['email_address']) . '</td>';
                       echo '<td><span class="badge ' . $badgeClass . '">' . ucfirst(htmlspecialchars($row['account_type'])) . '</span></td>';
+                      echo '<td><span class="badge ' . $statusClass . '">' . htmlspecialchars($statusText) . '</span></td>';
                       echo '<td>' . date('Y/m/d', strtotime($row['created_at'])) . '</td>';
-                      echo '<td>
+                      echo '<td class="d-flex gap-1 justify-content-center">
                                 <button class="btn btn-sm btn-primary" title="Edit" onclick="editUser(\'' . $row['uid'] . '\')" data-bs-toggle="modal" data-bs-target="#updateUserModal">
                                   <i class="bi bi-pencil"></i>
                                 </button>
-                                <button class="btn btn-sm btn-secondary" title="Delete" onclick="deleteUser(\'' . $row['uid'] . '\')">
-                                    <i class="bi bi-archive"></i>
-                                </button>
+                                <div class="dropdown">
+                                    <button class="btn btn-sm btn-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="Change Status">
+                                        <i class="bi bi-gear"></i>
+                                    </button>
+                                    <ul class="dropdown-menu dropdown-menu-end shadow">
+                                        <li><h6 class="dropdown-header">Set Status</h6></li>
+                                        <li><a class="dropdown-item" href="#" onclick="changeUserStatus(\'' . $row['uid'] . '\', \'Active\')"><i class="bi bi-check-circle text-success me-2"></i>Active</a></li>
+                                        <li><a class="dropdown-item" href="#" onclick="changeUserStatus(\'' . $row['uid'] . '\', \'Inactive\')"><i class="bi bi-pause-circle text-warning me-2"></i>Inactive</a></li>
+                                        <li><hr class="dropdown-divider"></li>
+                                        <li><a class="dropdown-item text-danger" href="#" onclick="changeUserStatus(\'' . $row['uid'] . '\', \'Archived\')"><i class="bi bi-archive text-danger me-2"></i>Archive</a></li>
+                                    </ul>
+                                </div>
                               </td>';
                       echo '</tr>';
                     }
@@ -85,7 +109,8 @@
   <div class="modal fade" id="addUserModal" tabindex="-1" aria-labelledby="addUserModalLabel" aria-hidden="true">
     <div class="modal-dialog">
       <div class="modal-content">
-        <form method="post" onsubmit="return validateForm()" class="needs-validation" novalidate id="register-form" action="controller/user/add-user.php">
+        <form method="post" onsubmit="return validateForm()" class="needs-validation" novalidate id="register-form"
+          action="controller/user/add-user.php">
           <div class="modal-header">
             <h5 class="modal-title" id="addUserModalLabel">Add User</h5>
             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
@@ -97,24 +122,29 @@
             </div>
             <div class="mb-3">
               <label for="full_name" class="form-label">Full Name:</label>
-              <input type="text" class="form-control" id="full_name" name="full_name" placeholder="First Name MI. Last Name" required>
+              <input type="text" class="form-control" id="full_name" name="full_name"
+                placeholder="First Name MI. Last Name" required>
             </div>
             <div class="mb-3">
               <label for="contact_number" class="form-label">Contact Number:</label>
-              <input type="text" class="form-control" id="contact_number" name="contact_number" placeholder="09123456789" required inputmode="numeric" maxlength="11" pattern="\d{11}">
+              <input type="text" class="form-control" id="contact_number" name="contact_number"
+                placeholder="09123456789" required inputmode="numeric" maxlength="11" pattern="\d{11}">
             </div>
             <div class="mb-3">
               <label for="emailInput" class="form-label">Email Address:</label>
-              <input type="text" class="form-control" id="emailInput" name="email_address" placeholder="Samplemail@gmail.com" required>
+              <input type="text" class="form-control" id="emailInput" name="email_address"
+                placeholder="Samplemail@gmail.com" required>
             </div>
             <div class="mb-3">
               <label for="password" class="form-label">Password:</label>
-              <input type="password" class="form-control" id="password" name="password" placeholder="Password" required oninput="checkPasswordStrength()">
+              <input type="password" class="form-control" id="password" name="password" placeholder="Password" required
+                oninput="checkPasswordStrength()">
               <div class="form-text" id="password-strength"></div>
             </div>
             <div class="mb-3">
               <label for="confirm_password" class="form-label">Confirm Password:</label>
-              <input type="password" class="form-control" id="confirm_password" name="confirm_password" placeholder="Confirm Password" required oninput="checkPasswordMatch()">
+              <input type="password" class="form-control" id="confirm_password" name="confirm_password"
+                placeholder="Confirm Password" required oninput="checkPasswordMatch()">
               <div class="form-text" id="password-match"></div>
             </div>
             <div class="mb-3">
@@ -151,19 +181,23 @@
           <div class="modal-body">
             <div class="mb-3">
               <label for="update_username" class="form-label">User Name:</label>
-              <input type="text" class="form-control" id="update_username" name="username" placeholder="User Name" required>
+              <input type="text" class="form-control" id="update_username" name="username" placeholder="User Name"
+                required>
             </div>
             <div class="mb-3">
               <label for="update_full_name" class="form-label">Full Name:</label>
-              <input type="text" class="form-control" id="update_full_name" name="full_name" placeholder="First Name MI. Last Name" required>
+              <input type="text" class="form-control" id="update_full_name" name="full_name"
+                placeholder="First Name MI. Last Name" required>
             </div>
             <div class="mb-3">
               <label for="update_contact_number" class="form-label">Contact Number:</label>
-              <input type="text" class="form-control" id="update_contact_number" name="contact_number" placeholder="09123456789" required inputmode="numeric" maxlength="11" pattern="\d{11}">
+              <input type="text" class="form-control" id="update_contact_number" name="contact_number"
+                placeholder="09123456789" required inputmode="numeric" maxlength="11" pattern="\d{11}">
             </div>
             <div class="mb-3">
               <label for="update_emailInput" class="form-label">Email Address:</label>
-              <input type="text" class="form-control" id="update_emailInput" name="email_address" placeholder="Samplemail@gmail.com" required>
+              <input type="text" class="form-control" id="update_emailInput" name="email_address"
+                placeholder="Samplemail@gmail.com" required>
             </div>
             <div class="mb-3">
               <label for="update_password" class="form-label">Password:</label>
@@ -172,7 +206,8 @@
             </div>
             <div class="mb-3">
               <label for="update_confirm_password" class="form-label">Confirm Password:</label>
-              <input type="password" class="form-control" id="update_confirm_password" name="confirm_password" placeholder="Confirm Password">
+              <input type="password" class="form-control" id="update_confirm_password" name="confirm_password"
+                placeholder="Confirm Password">
               <div class="form-text" id="update-password-match"></div>
             </div>
             <div class="mb-3">
@@ -208,7 +243,7 @@
     updateUrl: 'controller/user/update-user.php',
     redirectUrl: 'manage-user-account',
     updateData: null,
-    callback: function(error, data) {
+    callback: function (error, data) {
 
     },
     promptMessage: 'Are you sure you want to update this user?'
@@ -236,23 +271,47 @@
   };
 
 
-  $('#update-user').on('submit', function(e) {
+  $('#update-user').on('submit', function (e) {
     e.preventDefault();
     updateRequest.send();
   });
 
 
-  window.deleteUser = uid => {
-    new DeleteRequest({
-      deleteUrl: "controller/user/delete-user.php",
-      data: {
-        uid: uid.toString()
-      },
-      promptMessage: "Do you want to archive this user?",
-      callback: (err, res) => {
-        if (err) return console.error("Deletion error:", err);
-        console.log("Item deleted successfully:", res);
+  window.changeUserStatus = (uid, status) => {
+    Swal.fire({
+      title: "Change Account Status?",
+      text: `Are you sure you want to change this user's status to ${status}?`,
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: status === \'Archived\' ? "#dc3545" : "#0d6efd",
+      cancelButtonColor: "#6c757d",
+      confirmButtonText: "Yes, change it!"
+    }).then((result) => {
+      if (result.isConfirmed) {
+        $.ajax({
+          url: 'controller/user/update-status.php',
+          type: 'POST',
+          contentType: 'application/json',
+          data: JSON.stringify({ uid: uid, status: status }),
+          success: function (response) {
+            if (response.status === 'success') {
+              Swal.fire({
+                title: "Updated!",
+                text: response.message,
+                icon: "success"
+              }).then(() => {
+                location.reload();
+              });
+            } else {
+              Swal.fire("Error!", response.message, "error");
+            }
+          },
+          error: function (xhr, status, error) {
+            console.error("Error updating status:", error);
+            Swal.fire("Error!", "An error occurred while updating the status.", "error");
+          }
+        });
       }
-    }).send();
+    });
   };
 </script>

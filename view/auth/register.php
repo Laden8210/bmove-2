@@ -3,55 +3,60 @@
         <div class="col-md-6">
             <img src="public/images/truck.gif" alt="" width="75" height="46" class="mb-3">
             <div class="mb-4 fs-4 fw-bold">BMoveXpress: Smart Movers</div>
-            <img src="public/images/logo.jpg" class="img-fluid mb-4" style="max-width: 100%; height: auto;" class="rounded">
+            <img src="public/images/logo.jpg" class="img-fluid mb-4" style="max-width: 100%; height: auto;"
+                class="rounded">
         </div>
         <div class="col-md-6">
             <div class="text-center mb-4" style="font-size: 2.5rem;">SignUp</div>
-            <form method="post" onsubmit="return validateForm()" class="needs-validation" novalidate id="register-form" action="controller/auth/confirm-registration.php">
-                <div class="mb-3">
-                    <label for="username" class="form-label">User Name:</label>
-                    <input type="text" class="form-control" id="username" name="username" placeholder="User Name" required>
-                </div>
+            <form method="post" onsubmit="return validateForm()" class="needs-validation" novalidate id="register-form"
+                action="controller/auth/confirm-registration.php">
                 <div class="mb-3">
                     <label for="full_name" class="form-label">Full Name:</label>
-                    <input type="text" class="form-control" id="full_name" name="full_name" placeholder="FirstName MI. Lastname" required>
+                    <input type="text" class="form-control" id="full_name" name="full_name"
+                        placeholder="FirstName MI. Lastname" required>
                 </div>
                 <div class="mb-3">
                     <label for="contact_number" class="form-label">Contact Number:</label>
-                    <input type="text" class="form-control" id="contact_number" name="contact_number" placeholder="09123456789" required inputmode="numeric" maxlength="11" pattern="\d{11}">
-                </div>
-                <div class="mb-3">
-                    <label for="emailInput" class="form-label">Email Address:</label>
-                    <div class="input-group">
-                        <input type="text" class="form-control" id="emailInput" name="email_address" placeholder="Samplemail@gmail.com" required>
-                        <button type="button" class="btn btn-outline-secondary" id="sendOtpButton" onclick="sendOtp()">Send OTP</button>
+                    <input type="text" class="form-control" id="contact_number" name="contact_number"
+                        placeholder="09123456789" required inputmode="numeric" maxlength="11" pattern="\d{11}"
+                        value="09" oninput="validateContactNumber()">
+                    <div class="form-text text-danger d-none" id="contact-warning">
+                        <i class="fas fa-exclamation-triangle"></i> Invalid format. Must start with "09" followed by 9
+                        digits (e.g., 09123456789).
                     </div>
                 </div>
                 <div class="mb-3">
-                    <label for="otp_code" class="form-label">OTP Code:</label>
-                    <input type="text" class="form-control" id="otp_code" name="otp_code" placeholder="Enter OTP" required>
+                    <label for="emailInput" class="form-label">Email Address:</label>
+                    <input type="text" class="form-control" id="emailInput" name="email_address"
+                        placeholder="Samplemail@gmail.com" required>
                 </div>
-
+                <div class="mb-3">
+                    <label for="username" class="form-label">User Name:</label>
+                    <input type="text" class="form-control" id="username" name="username" placeholder="User Name"
+                        required>
+                </div>
                 <div class="mb-3">
                     <label for="password" class="form-label">Password:</label>
-                    <input type="password" class="form-control" id="password" name="password" placeholder="Password" required oninput="checkPasswordStrength()">
+                    <input type="password" class="form-control" id="password" name="password" placeholder="Password"
+                        required oninput="checkPasswordStrength()">
+                    <div class="form-text" id="password-requirements">
+                        Password must be at least 8 characters and include:
+                        <ul class="mb-0 mt-1" style="font-size: 0.85em;">
+                            <li id="req-length" class="text-muted">Minimum 8 characters</li>
+                            <li id="req-uppercase" class="text-muted">At least one uppercase letter (A-Z)</li>
+                            <li id="req-lowercase" class="text-muted">At least one lowercase letter (a-z)</li>
+                            <li id="req-number" class="text-muted">At least one number (0-9)</li>
+                            <li id="req-special" class="text-muted">At least one special character (!@#$%^&*)</li>
+                        </ul>
+                    </div>
                     <div class="form-text" id="password-strength"></div>
                 </div>
                 <div class="mb-3">
                     <label for="confirm_password" class="form-label">Confirm Password:</label>
-                    <input type="password" class="form-control" id="confirm_password" name="confirm_password" placeholder="Confirm Password" required oninput="checkPasswordMatch()">
+                    <input type="password" class="form-control" id="confirm_password" name="confirm_password"
+                        placeholder="Confirm Password" required oninput="checkPasswordMatch()">
                     <div class="form-text" id="password-match"></div>
                 </div>
-
-
-                <div class="mb-3 form-check">
-                    <input type="checkbox" class="form-check-input" id="privacy_agreement" name="privacy_agreement" disabled>
-                    <label class="form-check-label" for="privacy_agreement">
-                        I agree to the <span class="text-primary" style="cursor:pointer;" onclick="togglePrivacyPanel()">Privacy Policy</span>
-                    </label>
-                </div>
-
-
 
                 <button type="submit" class="btn btn-primary w-100" id="submit-btn">Submit</button>
             </form>
@@ -61,47 +66,119 @@
 
 
 <script>
-    function sendOtp() {
-        var email = document.getElementById("emailInput").value;
-        if (email) {
-            Swal.fire({
-                title: 'Sending OTP...',
-                allowOutsideClick: false,
-                didOpen: () => {
-                    Swal.showLoading();
-                }
-            });
-            $.ajax({
-                url: 'controller/auth/request-otp.php',
-                type: 'POST',
-                contentType: 'application/json',
-                data: JSON.stringify({
-                    email: email
-                }),
-                success: function(response) {
-                    Swal.close();
-                    var result = JSON.parse(response);
-                    if (result.status === 'success') {
-                        Swal.fire('Success', 'OTP sent to your email!', 'success');
-                    } else {
-                        Swal.fire('Error', 'Error sending OTP: ' + result.message, 'error');
-                    }
-                },
-                error: function(xhr, status, error) {
-                    Swal.close();
-                    Swal.fire('Error', 'An error occurred while sending OTP.', 'error');
-                    console.error(error);
-                }
-            });
-        } else {
-            Swal.fire('Warning', 'Please enter a valid email address.', 'warning');
+    function validateContactNumber() {
+        var contact = document.getElementById('contact_number').value;
+        var warning = document.getElementById('contact-warning');
+
+        // Prevent removing the "09" prefix
+        if (!contact.startsWith('09')) {
+            document.getElementById('contact_number').value = '09';
+            contact = '09';
         }
+
+        // Only allow digits
+        document.getElementById('contact_number').value = contact.replace(/[^0-9]/g, '');
+        contact = document.getElementById('contact_number').value;
+
+        // Show warning if not empty and doesn't match valid format
+        if (contact.length > 2 && !/^09\d{9}$/.test(contact)) {
+            warning.classList.remove('d-none');
+        } else {
+            warning.classList.add('d-none');
+        }
+    }
+
+    function checkPasswordStrength() {
+        var password = document.getElementById('password').value;
+
+        // Check each requirement
+        var checks = {
+            'req-length': password.length >= 8,
+            'req-uppercase': /[A-Z]/.test(password),
+            'req-lowercase': /[a-z]/.test(password),
+            'req-number': /[0-9]/.test(password),
+            'req-special': /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)
+        };
+
+        for (var id in checks) {
+            var el = document.getElementById(id);
+            if (checks[id]) {
+                el.classList.remove('text-muted');
+                el.classList.add('text-success');
+            } else {
+                el.classList.remove('text-success');
+                el.classList.add('text-muted');
+            }
+        }
+
+        // Overall strength indicator
+        var metCount = Object.values(checks).filter(Boolean).length;
+        var strengthEl = document.getElementById('password-strength');
+        if (password.length === 0) {
+            strengthEl.textContent = '';
+        } else if (metCount <= 2) {
+            strengthEl.textContent = 'Weak password';
+            strengthEl.className = 'form-text text-danger';
+        } else if (metCount <= 4) {
+            strengthEl.textContent = 'Moderate password';
+            strengthEl.className = 'form-text text-warning';
+        } else {
+            strengthEl.textContent = 'Strong password';
+            strengthEl.className = 'form-text text-success';
+        }
+    }
+
+    function checkPasswordMatch() {
+        var password = document.getElementById('password').value;
+        var confirm = document.getElementById('confirm_password').value;
+        var matchEl = document.getElementById('password-match');
+
+        if (confirm.length === 0) {
+            matchEl.textContent = '';
+        } else if (password === confirm) {
+            matchEl.textContent = 'Passwords match';
+            matchEl.className = 'form-text text-success';
+        } else {
+            matchEl.textContent = 'Passwords do not match';
+            matchEl.className = 'form-text text-danger';
+        }
+    }
+
+    function validateForm() {
+        var contact = document.getElementById('contact_number').value;
+        if (!/^09\d{9}$/.test(contact)) {
+            Swal.fire('Invalid Contact Number', 'Contact number must start with "09" followed by 9 digits.', 'warning');
+            return false;
+        }
+
+        var password = document.getElementById('password').value;
+        if (password.length < 8 || !/[A-Z]/.test(password) || !/[a-z]/.test(password) || !/[0-9]/.test(password) || !/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)) {
+            Swal.fire('Weak Password', 'Password must meet all the listed requirements.', 'warning');
+            return false;
+        }
+
+        return true;
     }
 
     const createRequest = new CreateRequest({
         formSelector: "#register-form",
         submitButtonSelector: "#submit-btn",
-        callback: (err, res) => err ? console.error("Form submission error:", err) : console.log(
-            "Form submitted successfully:", res)
+        promptMessage: "Are you sure you want to register?",
+        callback: (err, res) => {
+            if (!err) {
+                Swal.fire({
+                    title: 'Registration Successful!',
+                    text: 'A verification link has been sent to your email. Please check your inbox and click the link to verify your account before logging in.',
+                    icon: 'success',
+                    confirmButtonText: 'Go to Login'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        window.location.href = 'login';
+                    }
+                });
+            } else {
+                console.error("Form submission error:", err);
+            }
+        }
     });
 </script>

@@ -9,13 +9,21 @@
 
                 <div class="card-body">
 
-                    <?php if (isset($_GET['error'])) : ?>
+                    <?php if (isset($_GET['error'])): ?>
                         <div class="alert alert-danger alert-dismissible fade show" role="alert">
                             <?= match ($_GET['error']) {
                                 'session_tampered' => 'Security violation detected. Please login again.',
                                 'invalid_credentials' => 'Invalid email or password.',
+                                'email_not_verified' => 'Please verify your email before logging in. Check your inbox for the verification link.',
                                 default => 'An error occurred. Please try again.'
                             } ?>
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        </div>
+                    <?php endif; ?>
+
+                    <?php if (isset($_GET['verified']) && $_GET['verified'] == '1'): ?>
+                        <div class="alert alert-success alert-dismissible fade show" role="alert">
+                            Email verified successfully! You can now log in.
                             <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                         </div>
                     <?php endif; ?>
@@ -24,11 +32,13 @@
                         <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?? '' ?>">
                         <div class="mb-3">
                             <label for="username" class="form-label">Username:</label>
-                            <input type="text" name="username" id="username" class="form-control" placeholder="Enter username or email" required>
+                            <input type="text" name="username" id="username" class="form-control"
+                                placeholder="Enter username or email" required>
                         </div>
                         <div class="mb-3">
                             <label for="password" class="form-label">Password:</label>
-                            <input type="password" name="password" id="password" class="form-control" placeholder="Password" required>
+                            <input type="password" name="password" id="password" class="form-control"
+                                placeholder="Password" required>
                         </div>
                         <div class="d-grid">
                             <input type="submit" value="Submit" class="btn btn-primary">

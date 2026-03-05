@@ -6,7 +6,7 @@ require_once '../../vendor/autoload.php';
 use Dompdf\Dompdf;
 use Dompdf\Options;
 
-// Set session configuration BEFORE starting session
+
 ini_set('session.cookie_httponly', 1);
 ini_set('session.cookie_secure', $_SERVER['HTTP_HOST'] !== 'localhost');
 ini_set('session.use_strict_mode', 1);
@@ -35,7 +35,7 @@ if (json_last_error() !== JSON_ERROR_NONE) {
     exit;
 }
 
-// Validate required fields
+
 $requiredFields = ['report_type', 'start_date', 'end_date'];
 foreach ($requiredFields as $field) {
     if (empty($request_body[$field])) {

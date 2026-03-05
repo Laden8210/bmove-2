@@ -37,15 +37,15 @@ $password = $request_body['password'];
 try {
 
 
-    $stmt = $conn->prepare("SELECT uid, email_address, password, account_type FROM users WHERE email_address = ? or username = ?");
+    $stmt = $conn->prepare("SELECT uid, email_address, password, account_type, email_verified FROM users WHERE email_address = ? or username = ?");
     if (!$stmt) {
         throw new Exception('Database error: ' . $conn->error);
     }
-    
+
     $stmt->bind_param("ss", $email, $email);
     $stmt->execute();
     $result = $stmt->get_result();
-    
+
     if ($result->num_rows === 0) {
         echo json_encode(['status' => 'error', 'message' => 'Invalid email or password', 'http_code' => 401]);
         exit;
@@ -53,13 +53,19 @@ try {
     }
 
     $user = $result->fetch_assoc();
-    
+
+    // Check if email is verified
+    if (isset($user['email_verified']) && $user['email_verified'] == 0) {
+        echo json_encode(['status' => 'error', 'message' => 'Please verify your email before logging in. Check your inbox for the verification link.', 'http_code' => 403]);
+        exit;
+    }
+
     // if (!password_verify($password, $user['password'])) {
     //     echo json_encode(['status' => 'error', 'message' => 'Incorrect Password', 'http_code' => 401]);
     //     exit;
     // }
     session_regenerate_id(true);
-    
+
 
     $_SESSION['auth'] = [
         'user_id' => $user['uid'],

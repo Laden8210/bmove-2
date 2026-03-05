@@ -6,11 +6,38 @@ $endDate = isset($_GET['date-end']) ? $_GET['date-end'] : date('Y-m-d');
 $reportData = [];
 $reportTitle = '';
 
+$vehiclesRes = $conn->query("SELECT vehicleid, name, platenumber FROM vehicles");
+$vehiclesList = $vehiclesRes->fetch_all(MYSQLI_ASSOC);
+$selectedVehicleId = isset($_GET['vehicle_id']) ? $_GET['vehicle_id'] : '';
+$expenseData = [];
+$grossIncome = 0;
+
 
 switch ($reportType) {
     case 'bookings':
         $reportTitle = 'Bookings Report';
-        $result = $conn->prepare("
+
+        $customerFilter = '';
+        $params = ["ss"];
+        $binds = [&$startDate, &$endDate];
+
+        if (isset($_GET['customer']) && !empty($_GET['customer'])) {
+            $customerFilter = " AND b.user_id = ? ";
+            $params[0] .= "s";
+            $binds[] = &$_GET['customer'];
+
+            // Fetch customer name for the title
+            $custStmt = $conn->prepare("SELECT full_name FROM users WHERE uid = ?");
+            $custStmt->bind_param("s", $_GET['customer']);
+            $custStmt->execute();
+            $custRes = $custStmt->get_result();
+            if ($custRes->num_rows > 0) {
+                $custName = $custRes->fetch_assoc()['full_name'];
+                $reportTitle = "Bookings Report - Filtered by: " . htmlspecialchars($custName);
+            }
+        }
+
+        $query = "
             SELECT b.booking_id, u.full_name, v.name AS vehicle_name, 
                    b.pickup_location, b.dropoff_location, 
                    b.date, b.time, b.total_price, b.status,
@@ -18,10 +45,19 @@ switch ($reportType) {
             FROM bookings b
             JOIN users u ON b.user_id = u.uid
             LEFT JOIN vehicles v ON b.vehicle_id = v.vehicleid
-            WHERE DATE(b.created_at) BETWEEN ? AND ?
+            WHERE DATE(b.created_at) BETWEEN ? AND ? $customerFilter
             ORDER BY b.created_at DESC
-        ");
-        $result->bind_param("ss", $startDate, $endDate);
+        ";
+        $result = $conn->prepare($query);
+
+        // Dynamically bind params using reflection/call_user_func_array
+        $bindParams = array_merge([$params[0]], array_slice($binds, 0));
+        $refs = [];
+        foreach ($bindParams as $key => $value) {
+            $refs[$key] = &$bindParams[$key];
+        }
+        call_user_func_array([$result, 'bind_param'], $refs);
+
         $result->execute();
         $reportData = $result->get_result()->fetch_all(MYSQLI_ASSOC);
         break;
@@ -83,6 +119,29 @@ switch ($reportType) {
         $result->bind_param("ss", $startDate, $endDate);
         $result->execute();
         $reportData = $result->get_result()->fetch_all(MYSQLI_ASSOC);
+        break;
+
+    case 'income-expense':
+        $reportTitle = 'Vehicle Income & Expense Report';
+        if (!empty($selectedVehicleId)) {
+            // Fetch Expenses
+            $expStmt = $conn->prepare("SELECT * FROM vehicle_expenses WHERE vehicle_id = ? AND expense_date BETWEEN ? AND ? ORDER BY expense_date DESC");
+            $expStmt->bind_param("sss", $selectedVehicleId, $startDate, $endDate);
+            $expStmt->execute();
+            $expenseData = $expStmt->get_result()->fetch_all(MYSQLI_ASSOC);
+
+            // Fetch Gross Income (Total paid bookings for this vehicle in this date range)
+            $incStmt = $conn->prepare("
+                SELECT SUM(p.amount_received) as gross_income 
+                FROM payments p 
+                JOIN bookings b ON p.booking_id = b.booking_id 
+                WHERE b.vehicle_id = ? AND b.date BETWEEN ? AND ? AND p.payment_status = 'paid'
+            ");
+            $incStmt->bind_param("sss", $selectedVehicleId, $startDate, $endDate);
+            $incStmt->execute();
+            $incResult = $incStmt->get_result()->fetch_assoc();
+            $grossIncome = $incResult['gross_income'] ?? 0;
+        }
         break;
 
     case 'ratings':
@@ -325,21 +384,40 @@ $conn->close();
                                     <div class="col-md-3 mb-3">
                                         <label for="report-type" class="form-label">Report Type:</label>
                                         <select id="report-type" name="report-type" class="form-select">
-                                            <option value="bookings" <?= $reportType === 'bookings' ? 'selected' : '' ?>>Bookings Report</option>
-                                            <option value="revenue" <?= $reportType === 'revenue' ? 'selected' : '' ?>>Revenue Report</option>
-                                            <option value="vehicles" <?= $reportType === 'vehicles' ? 'selected' : '' ?>>Vehicle Utilization</option>
-                                            <option value="customers" <?= $reportType === 'customers' ? 'selected' : '' ?>>Customer Activity</option>
+                                            <option value="bookings" <?= $reportType === 'bookings' ? 'selected' : '' ?>>
+                                                Bookings Report</option>
+                                            <option value="revenue" <?= $reportType === 'revenue' ? 'selected' : '' ?>>
+                                                Revenue Report</option>
+                                            <option value="vehicles" <?= $reportType === 'vehicles' ? 'selected' : '' ?>>
+                                                Vehicle Utilization</option>
+                                            <option value="customers" <?= $reportType === 'customers' ? 'selected' : '' ?>>
+                                                Customer Activity</option>
                                             <option value="ratings" <?= $reportType === 'ratings' ? 'selected' : '' ?>>User Ratings</option>
                                             <option value="ratings_summary" <?= $reportType === 'ratings_summary' ? 'selected' : '' ?>>Ratings Summary</option>
+                                            <option value="income-expense" <?= $reportType === 'income-expense' ? 'selected' : '' ?>>Income & Expense</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-3 mb-3" id="vehicle-select-container" style="<?= $reportType === 'income-expense' ? '' : 'display: none;' ?>">
+                                        <label for="vehicle_id" class="form-label">Select Vehicle:</label>
+                                        <select id="vehicle_id" name="vehicle_id" class="form-select">
+                                            <option value="">Select a vehicle...</option>
+                                            <?php foreach ($vehiclesList as $v): ?>
+                                                <option value="<?= $v['vehicleid'] ?>" <?= ($selectedVehicleId === $v['vehicleid']) ? 'selected' : '' ?>>
+                                                    <?= htmlspecialchars($v['name']) ?> (<?= htmlspecialchars($v['platenumber']) ?>)
+                                                </option>
+                                            <?php endforeach; ?>
                                         </select>
                                     </div>
                                     <div class="col-md-3 mb-3">
                                         <label for="date-start" class="form-label">Start Date:</label>
-                                        <input type="text" id="date-start" name="date-start" class="form-control datepicker" placeholder="Select start date" autocomplete="off" value="<?= $startDate ?>">
+                                        <input type="text" id="date-start" name="date-start"
+                                            class="form-control datepicker" placeholder="Select start date"
+                                            autocomplete="off" value="<?= $startDate ?>">
                                     </div>
                                     <div class="col-md-3 mb-3">
                                         <label for="date-end" class="form-label">End Date:</label>
-                                        <input type="text" id="date-end" name="date-end" class="form-control datepicker" placeholder="Select end date" autocomplete="off" value="<?= $endDate ?>">
+                                        <input type="text" id="date-end" name="date-end" class="form-control datepicker"
+                                            placeholder="Select end date" autocomplete="off" value="<?= $endDate ?>">
                                     </div>
                                     <div class="col-md-3 mb-3 d-flex align-items-end">
                                         <button id="generate-report" class="btn btn-primary w-100">
@@ -361,8 +439,18 @@ $conn->close();
                             <?php endif; ?>
                         </div>
 
-                        <h3 class="report-title"><?= $reportTitle ?>: <?= date('M d, Y', strtotime($startDate)) ?> - <?= date('M d, Y', strtotime($endDate)) ?></h3>
+                        <h3 class="report-title">
+                            <?= $reportTitle ?>: <?= date('M d, Y', strtotime($startDate)) ?> -
+                            <?= date('M d, Y', strtotime($endDate)) ?>
+                            <?php if (isset($_GET['customer']) && $reportType === 'bookings'): ?>
+                                <a href="?report-type=bookings&date-start=<?= $startDate ?>&date-end=<?= $endDate ?>"
+                                    class="btn btn-sm btn-outline-danger ms-3">
+                                    <i class="bi bi-x-circle me-1"></i> Clear Filter
+                                </a>
+                            <?php endif; ?>
+                        </h3>
 
+                        <?php if ($reportType !== 'income-expense'): ?>
                         <div class="table-responsive">
                             <table class="table table-hover table-striped" id="report-table">
                                 <thead>
@@ -488,11 +576,20 @@ $conn->close();
 
                                         <?php elseif ($reportType === 'customers'): ?>
                                             <tr>
-                                                <td><?= $row['full_name'] ?></td>
+                                                <td>
+                                                    <a href="?report-type=bookings&customer=<?= $row['uid'] ?>&date-start=<?= $startDate ?>&date-end=<?= $endDate ?>"
+                                                        class="text-primary fw-bold text-decoration-none"
+                                                        title="View all bookings for this customer">
+                                                        <?= htmlspecialchars($row['full_name']) ?> <i
+                                                            class="bi bi-box-arrow-up-right ms-1"
+                                                            style="font-size: 0.8rem;"></i>
+                                                    </a>
+                                                </td>
                                                 <td><?= $row['email_address'] ?><br><?= $row['contact_number'] ?></td>
                                                 <td><?= $row['total_bookings'] ?></td>
                                                 <td class="fw-bold">₱<?= number_format($row['total_spent'] ?? 0, 2) ?></td>
-                                                <td><?= $row['last_booking_date'] ? date('M d, Y', strtotime($row['last_booking_date'])) : 'N/A' ?></td>
+                                                <td><?= $row['last_booking_date'] ? date('M d, Y', strtotime($row['last_booking_date'])) : 'N/A' ?>
+                                                </td>
                                             </tr>
 
                                         <?php elseif ($reportType === 'ratings'): ?>
@@ -504,11 +601,12 @@ $conn->close();
                                                 <td><?= htmlspecialchars($row['driver_name']) ?></td>
                                                 <td>
                                                     <span class="star-rating overall">
-                                                        <?= str_repeat('*', $row['overall_rating']) ?><?= str_repeat('o', 5 - $row['overall_rating']) ?>
+                                                        <?= str_repeat('*', $row['overall_rating']) ?>        <?= str_repeat('o', 5 - $row['overall_rating']) ?>
                                                         <span class="rating-number">(<?= $row['overall_rating'] ?>/5)</span>
                                                     </span>
                                                 </td>
-                                                <td><?= $row['comments'] ? nl2br(htmlspecialchars(substr($row['comments'], 0, 100))) . (strlen($row['comments']) > 100 ? '...' : '') : 'No comments' ?></td>
+                                                <td><?= $row['comments'] ? nl2br(htmlspecialchars(substr($row['comments'], 0, 100))) . (strlen($row['comments']) > 100 ? '...' : '') : 'No comments' ?>
+                                                </td>
                                                 <td><?= $row['rated_at'] ?></td>
                                                 <td><?= $row['booking_date'] ?></td>
                                             </tr>
@@ -518,9 +616,10 @@ $conn->close();
                                                 <td class="fw-bold"><?= $row['category'] ?></td>
                                                 <td><?= $row['total_ratings'] ?></td>
                                                 <td>
-                                                    <span class="fw-bold text-primary"><?= number_format($row['average_rating'], 1) ?></span>
+                                                    <span
+                                                        class="fw-bold text-primary"><?= number_format($row['average_rating'], 1) ?></span>
                                                     <span class="star-rating small">
-                                                        <?= str_repeat('*', round($row['average_rating'])) ?><?= str_repeat('o', 5 - round($row['average_rating'])) ?>
+                                                        <?= str_repeat('*', round($row['average_rating'])) ?>        <?= str_repeat('o', 5 - round($row['average_rating'])) ?>
                                                     </span>
                                                 </td>
                                                 <td><?= $row['min_rating'] ?></td>
@@ -548,8 +647,117 @@ $conn->close();
                                 </tbody>
                             </table>
                         </div>
+                        <?php else: ?>
+                            <?php if (empty($selectedVehicleId)): ?>
+                                <div class="alert alert-info py-4 text-center mt-4">
+                                    <i class="bi bi-info-circle-fill fs-3 d-block mb-2"></i>
+                                    Please select a vehicle and click Generate Report to view income and expenses.
+                                </div>
+                            <?php else: ?>
+                                <?php
+                                    $totalExpenses = 0;
+                                    foreach ($expenseData as $exp) {
+                                        $totalExpenses += floatval($exp['amount']);
+                                    }
+                                    $netProfit = $grossIncome - $totalExpenses;
+                                    $adminShare = $netProfit * 0.60;
+                                    $driverShare = $netProfit * 0.40;
+                                ?>
 
-                        <?php if (!empty($reportData)): ?>
+                                <div class="d-flex justify-content-between align-items-center mb-3 mt-4">
+                                    <h5 class="m-0 fw-bold">1. Expense Log</h5>
+                                    <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#addExpenseModal">
+                                        <i class="bi bi-plus-circle me-1"></i> Add Expense
+                                    </button>
+                                </div>
+                                <div class="table-responsive mb-5">
+                                    <table class="table table-hover table-bordered">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th>Date</th>
+                                                <th>Expense Type</th>
+                                                <th>Description</th>
+                                                <th class="text-end">Amount (₱)</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <?php foreach ($expenseData as $exp): ?>
+                                                <tr>
+                                                    <td><?= date('M d, Y', strtotime($exp['expense_date'])) ?></td>
+                                                    <td><span class="badge bg-secondary"><?= htmlspecialchars($exp['expense_type']) ?></span></td>
+                                                    <td><?= htmlspecialchars($exp['description']) ?></td>
+                                                    <td class="text-end text-danger">-<?= number_format($exp['amount'], 2) ?></td>
+                                                </tr>
+                                            <?php endforeach; ?>
+                                            <?php if (empty($expenseData)): ?>
+                                                <tr><td colspan="4" class="text-center text-muted py-3">No expenses recorded for this period.</td></tr>
+                                            <?php endif; ?>
+                                        </tbody>
+                                        <tfoot class="table-group-divider">
+                                            <tr>
+                                                <th colspan="3" class="text-end">Total Expenses:</th>
+                                                <th class="text-end text-danger fs-5">-<?= number_format($totalExpenses, 2) ?></th>
+                                            </tr>
+                                        </tfoot>
+                                    </table>
+                                </div>
+
+                                <h5 class="mb-3 fw-bold">2. Overall Profit Calculation</h5>
+                                <div class="table-responsive mb-5">
+                                    <table class="table table-bordered">
+                                        <tbody>
+                                            <tr>
+                                                <td class="fw-bold fs-5">Gross Income (Total Earnings)</td>
+                                                <td class="text-end fw-bold text-success fs-5">₱<?= number_format($grossIncome, 2) ?></td>
+                                            </tr>
+                                            <tr>
+                                                <td class="fw-bold fs-5">Less: Total Expenses</td>
+                                                <td class="text-end text-danger fs-5">-<?= number_format($totalExpenses, 2) ?></td>
+                                            </tr>
+                                        </tbody>
+                                        <tfoot class="table-group-divider table-light">
+                                            <tr>
+                                                <th class="fs-4">Net Profit (Clean Income)</th>
+                                                <th class="text-end fw-bold fs-3 <?= $netProfit >= 0 ? 'text-primary' : 'text-danger' ?>">
+                                                    ₱<?= number_format($netProfit, 2) ?>
+                                                </th>
+                                            </tr>
+                                        </tfoot>
+                                    </table>
+                                </div>
+
+                                <div class="row mb-5">
+                                    <div class="col-md-7">
+                                        <h5 class="mb-3 fw-bold">3. Profit Sharing Breakdown</h5>
+                                        <div class="table-responsive">
+                                            <table class="table table-bordered">
+                                                <thead class="table-light">
+                                                    <tr>
+                                                        <th>Recipient</th>
+                                                        <th>Sharing Rule</th>
+                                                        <th class="text-end">Payout Amount (₱)</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    <tr>
+                                                        <td class="fw-bold">Admin / Operator</td>
+                                                        <td>60% of Net Profit</td>
+                                                        <td class="text-end text-success fw-bold">₱<?= number_format($adminShare, 2) ?></td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td class="fw-bold">Driver</td>
+                                                        <td>40% of Net Profit</td>
+                                                        <td class="text-end text-success fw-bold">₱<?= number_format($driverShare, 2) ?></td>
+                                                    </tr>
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            <?php endif; ?>
+                        <?php endif; ?>
+
+                        <?php if (!empty($reportData) && $reportType !== 'income-expense'): ?>
                             <div class="row mt-5">
                                 <div class="col-md-12">
                                     <div class="report-card">
@@ -587,6 +795,45 @@ $conn->close();
 </main>
 </div>
 
+<!-- Add Expense Modal -->
+<div class="modal fade" id="addExpenseModal" tabindex="-1" aria-labelledby="addExpenseModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <form id="add-expense-form" class="modal-content">
+            <input type="hidden" name="vehicle_id" value="<?= htmlspecialchars($selectedVehicleId ?? '') ?>">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addExpenseModalLabel">Add Vehicle Expense</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="expense_date" class="form-label">Date</label>
+                    <input type="date" class="form-control" id="expense_date" name="expense_date" required max="<?= date('Y-m-d') ?>" value="<?= date('Y-m-d') ?>">
+                </div>
+                <div class="mb-3">
+                    <label for="expense_type" class="form-label">Expense Type</label>
+                    <select class="form-select" id="expense_type" name="expense_type" required>
+                        <option value="">Select Type</option>
+                        <option value="Fuel">Fuel (Gasoline / Diesel)</option>
+                        <option value="Maintenance">Maintenance (Oil, Parts, Vulcanizing)</option>
+                        <option value="Miscellaneous">Miscellaneous (Toll, Parking, Car wash)</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label for="amount" class="form-label">Amount (₱)</label>
+                    <input type="number" step="0.01" min="0.01" class="form-control" id="amount" name="amount" required placeholder="0.00">
+                </div>
+                <div class="mb-3">
+                    <label for="description" class="form-label">Description (Optional)</label>
+                    <textarea class="form-control" id="description" name="description" rows="2" placeholder="Brief details about this expense..."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="submit" class="btn btn-success" id="save-expense-btn">Save Expense</button>
+            </div>
+        </form>
+    </div>
+</div>
 
 <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
@@ -596,7 +843,43 @@ $conn->close();
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <script>
-    $(document).ready(function() {
+    $(document).ready(function () {
+
+        $('#add-expense-form').submit(function(e) {
+            e.preventDefault();
+            const btn = $('#save-expense-btn');
+            btn.prop('disabled', true).text('Saving...');
+            
+            $.ajax({
+                url: 'controller/report/add-expense.php',
+                type: 'POST',
+                data: $(this).serialize(),
+                dataType: 'json',
+                success: function(response) {
+                    if (response.status === 'success') {
+                        $('#addExpenseModal').modal('hide');
+                        showNotification('Expense saved successfully!', 'success');
+                        setTimeout(() => location.reload(), 1500);
+                    } else {
+                        showNotification('Error: ' + response.message, 'error');
+                        btn.prop('disabled', false).text('Save Expense');
+                    }
+                },
+                error: function() {
+                    showNotification('A network error occurred. Please try again.', 'error');
+                    btn.prop('disabled', false).text('Save Expense');
+                }
+            });
+        });
+
+        // Added based on instruction 4: Javascript snippet to toggle the vehicle dropdown
+        $('#report-type').change(function() {
+            if ($(this).val() === 'income-expense') {
+                $('#vehicle-select-container').show();
+            } else {
+                $('#vehicle-select-container').hide();
+            }
+        });
 
         $('.datepicker').datepicker({
             format: 'yyyy-mm-dd',
@@ -607,16 +890,16 @@ $conn->close();
         // DataTable removed - using normal responsive table
 
 
-        $('#print-report').click(function() {
+        $('#print-report').click(function () {
             window.print();
         });
 
 
         // PDF Export functionality using DOMPDF
-        $('#export-pdf').click(function() {
+        $('#export-pdf').click(function () {
             const button = this;
             const originalText = button.innerHTML;
-            
+
             // Show loading state
             button.innerHTML = '<i class="bi bi-hourglass-split me-1"></i> Generating PDF...';
             button.disabled = true;
@@ -634,34 +917,34 @@ $conn->close();
                 },
                 body: JSON.stringify(reportData)
             })
-            .then(response => response.json())
-            .then(data => {
-                if (data.status === 'success') {
-                    // Open PDF in new tab
-                    window.open(data.download_url, '_blank');
-                    
-                    // Show success message
-                    showNotification('PDF generated successfully!', 'success');
-                } else {
-                    showNotification('Error generating PDF: ' + data.message, 'error');
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                showNotification('Error generating PDF. Please try again.', 'error');
-            })
-            .finally(() => {
-                // Restore button state
-                button.innerHTML = originalText;
-                button.disabled = false;
-            });
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        // Open PDF in new tab
+                        window.open(data.download_url, '_blank');
+
+                        // Show success message
+                        showNotification('PDF generated successfully!', 'success');
+                    } else {
+                        showNotification('Error generating PDF: ' + data.message, 'error');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    showNotification('Error generating PDF. Please try again.', 'error');
+                })
+                .finally(() => {
+                    // Restore button state
+                    button.innerHTML = originalText;
+                    button.disabled = false;
+                });
         });
 
         // Download PDF functionality
-        $('#download-pdf').click(function() {
+        $('#download-pdf').click(function () {
             const button = this;
             const originalText = button.innerHTML;
-            
+
             // Show loading state
             button.innerHTML = '<i class="bi bi-hourglass-split me-1"></i> Downloading...';
             button.disabled = true;
@@ -679,31 +962,31 @@ $conn->close();
                 },
                 body: JSON.stringify(reportData)
             })
-            .then(response => response.json())
-            .then(data => {
-                if (data.status === 'success') {
-                    // Create download link
-                    const link = document.createElement('a');
-                    link.href = data.download_url;
-                    link.download = data.filename;
-                    document.body.appendChild(link);
-                    link.click();
-                    document.body.removeChild(link);
-                    
-                    showNotification('PDF downloaded successfully!', 'success');
-                } else {
-                    showNotification('Error generating PDF: ' + data.message, 'error');
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                showNotification('Error downloading PDF. Please try again.', 'error');
-            })
-            .finally(() => {
-                // Restore button state
-                button.innerHTML = originalText;
-                button.disabled = false;
-            });
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        // Create download link
+                        const link = document.createElement('a');
+                        link.href = data.download_url;
+                        link.download = data.filename;
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+
+                        showNotification('PDF downloaded successfully!', 'success');
+                    } else {
+                        showNotification('Error generating PDF: ' + data.message, 'error');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    showNotification('Error downloading PDF. Please try again.', 'error');
+                })
+                .finally(() => {
+                    // Restore button state
+                    button.innerHTML = originalText;
+                    button.disabled = false;
+                });
         });
 
         // Notification function
@@ -715,9 +998,9 @@ $conn->close();
                 ${message}
                 <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
             `;
-            
+
             document.body.appendChild(notification);
-            
+
             // Auto remove after 5 seconds
             setTimeout(() => {
                 if (notification.parentNode) {
@@ -810,7 +1093,7 @@ $conn->close();
                             y: {
                                 beginAtZero: true,
                                 ticks: {
-                                    callback: function(value) {
+                                    callback: function (value) {
                                         return '₱' + value;
                                     }
                                 }
@@ -859,7 +1142,7 @@ $conn->close();
                             x: {
                                 beginAtZero: true,
                                 ticks: {
-                                    callback: function(value) {
+                                    callback: function (value) {
                                         return '₱' + value;
                                     }
                                 }
@@ -908,7 +1191,7 @@ $conn->close();
                             y: {
                                 beginAtZero: true,
                                 ticks: {
-                                    callback: function(value) {
+                                    callback: function (value) {
                                         return '₱' + value;
                                     }
                                 }
