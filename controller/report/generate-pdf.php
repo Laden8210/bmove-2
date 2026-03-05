@@ -402,7 +402,7 @@ function generateReportHTML($title, $data, $startDate, $endDate, $totalAmount, $
         $html .= '
             <div class="summary-row">
                 <span>Total Revenue:</span>
-                <span><strong>₱' . number_format($totalAmount, 2) . '</strong></span>
+                <span><strong>PHP ' . number_format($totalAmount, 2) . '</strong></span>
             </div>';
     }
 
@@ -493,7 +493,7 @@ function generateReportHTML($title, $data, $startDate, $endDate, $totalAmount, $
                     <th style="width: 15%">Date</th>
                     <th style="width: 25%">Expense Type</th>
                     <th style="width: 40%">Description</th>
-                    <th style="width: 20%" class="text-end">Amount (₱)</th>';
+                    <th style="width: 20%" class="text-end">Amount (PHP )</th>';
             break;
     }
 
@@ -513,7 +513,7 @@ function generateReportHTML($title, $data, $startDate, $endDate, $totalAmount, $
                     <td>' . date('M d, Y', strtotime($row['expense_date'])) . '</td>
                     <td>' . htmlspecialchars($row['expense_type']) . '</td>
                     <td>' . htmlspecialchars($row['description']) . '</td>
-                    <td style="text-align: right; color: #dc3545;">-₱' . number_format($row['amount'], 2) . '</td>
+                    <td style="text-align: right; color: #dc3545;">-PHP ' . number_format($row['amount'], 2) . '</td>
                 </tr>';
             }
         }
@@ -532,15 +532,15 @@ function generateReportHTML($title, $data, $startDate, $endDate, $totalAmount, $
                 <tbody>
                     <tr>
                         <td style="width: 70%;"><strong>Gross Income (Completed Bookings):</strong></td>
-                        <td style="width: 30%; text-align: right; color: #1cc88a; font-weight: bold;">₱' . number_format($grossIncome, 2) . '</td>
+                        <td style="width: 30%; text-align: right; color: #1cc88a; font-weight: bold;">PHP ' . number_format($grossIncome, 2) . '</td>
                     </tr>
                     <tr>
                         <td><strong>Total Vehicle Expenses:</strong></td>
-                        <td style="text-align: right; color: #e74a3b; font-weight: bold;">-₱' . number_format($totalExpenses, 2) . '</td>
+                        <td style="text-align: right; color: #e74a3b; font-weight: bold;">-PHP ' . number_format($totalExpenses, 2) . '</td>
                     </tr>
                     <tr style="background-color: #f8f9fc;">
                         <td><strong style="font-size: 14px;">NET PROFIT:</strong></td>
-                        <td style="text-align: right; font-weight: bold; font-size: 14px; color: ' . ($netProfit >= 0 ? '#1cc88a' : '#e74a3b') . ';">₱' . number_format($netProfit, 2) . '</td>
+                        <td style="text-align: right; font-weight: bold; font-size: 14px; color: ' . ($netProfit >= 0 ? '#1cc88a' : '#e74a3b') . ';">PHP ' . number_format($netProfit, 2) . '</td>
                     </tr>
                 </tbody>
             </table>
@@ -558,12 +558,12 @@ function generateReportHTML($title, $data, $startDate, $endDate, $totalAmount, $
                     <tr>
                         <td><strong>Admin / Operator</strong></td>
                         <td>60% of Net Profit</td>
-                        <td style="text-align: right; font-weight: bold; color: #1cc88a;">₱' . number_format($adminShare, 2) . '</td>
+                        <td style="text-align: right; font-weight: bold; color: #1cc88a;">PHP ' . number_format($adminShare, 2) . '</td>
                     </tr>
                     <tr>
                         <td><strong>Driver</strong></td>
                         <td>40% of Net Profit</td>
-                        <td style="text-align: right; font-weight: bold; color: #1cc88a;">₱' . number_format($driverShare, 2) . '</td>
+                        <td style="text-align: right; font-weight: bold; color: #1cc88a;">PHP ' . number_format($driverShare, 2) . '</td>
                     </tr>';
     } else {
         foreach ($data as $row) {
@@ -579,7 +579,7 @@ function generateReportHTML($title, $data, $startDate, $endDate, $totalAmount, $
                         <td>' . htmlspecialchars($row['dropoff_location']) . '</td>
                         <td>' . htmlspecialchars($row['date']) . '</td>
                         <td>' . htmlspecialchars($row['time']) . '</td>
-                        <td>₱' . number_format($row['total_price'], 2) . '</td>
+                        <td>PHP ' . number_format($row['total_price'], 2) . '</td>
                         <td><span class="status-badge status-' . $row['status'] . '">' . strtoupper($row['status']) . '</span></td>
                         <td>' . htmlspecialchars($row['created_at']) . '</td>';
                     break;
@@ -588,8 +588,8 @@ function generateReportHTML($title, $data, $startDate, $endDate, $totalAmount, $
                         <td>' . htmlspecialchars(substr($row['payment_id'], 0, 8)) . '...</td>
                         <td>' . htmlspecialchars(substr($row['booking_id'], 0, 8)) . '...</td>
                         <td>' . htmlspecialchars($row['full_name']) . '</td>
-                        <td>₱' . number_format($row['amount_due'], 2) . '</td>
-                        <td>₱' . number_format($row['amount_received'], 2) . '</td>
+                        <td>PHP ' . number_format($row['amount_due'], 2) . '</td>
+                        <td>PHP ' . number_format($row['amount_received'], 2) . '</td>
                         <td>' . strtoupper($row['payment_method']) . '</td>
                         <td><span class="status-badge status-' . $row['payment_status'] . '">' . strtoupper($row['payment_status']) . '</span></td>
                         <td>' . htmlspecialchars($row['paid_at_formatted']) . '</td>';
