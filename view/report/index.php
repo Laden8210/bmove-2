@@ -392,18 +392,22 @@ $conn->close();
                                                 Vehicle Utilization</option>
                                             <option value="customers" <?= $reportType === 'customers' ? 'selected' : '' ?>>
                                                 Customer Activity</option>
-                                            <option value="ratings" <?= $reportType === 'ratings' ? 'selected' : '' ?>>User Ratings</option>
+                                            <option value="ratings" <?= $reportType === 'ratings' ? 'selected' : '' ?>>User
+                                                Ratings</option>
                                             <option value="ratings_summary" <?= $reportType === 'ratings_summary' ? 'selected' : '' ?>>Ratings Summary</option>
                                             <option value="income-expense" <?= $reportType === 'income-expense' ? 'selected' : '' ?>>Income & Expense</option>
                                         </select>
                                     </div>
-                                    <div class="col-md-3 mb-3" id="vehicle-select-container" style="<?= $reportType === 'income-expense' ? '' : 'display: none;' ?>">
+                                    <div class="col-md-3 mb-3" id="vehicle-select-container"
+                                        style="<?= $reportType === 'income-expense' ? '' : 'display: none;' ?>">
                                         <label for="vehicle_id" class="form-label">Select Vehicle:</label>
                                         <select id="vehicle_id" name="vehicle_id" class="form-select">
                                             <option value="">Select a vehicle...</option>
                                             <?php foreach ($vehiclesList as $v): ?>
-                                                <option value="<?= $v['vehicleid'] ?>" <?= ($selectedVehicleId === $v['vehicleid']) ? 'selected' : '' ?>>
-                                                    <?= htmlspecialchars($v['name']) ?> (<?= htmlspecialchars($v['platenumber']) ?>)
+                                                <option value="<?= $v['vehicleid'] ?>"
+                                                    <?= ($selectedVehicleId === $v['vehicleid']) ? 'selected' : '' ?>>
+                                                    <?= htmlspecialchars($v['name']) ?>
+                                                    (<?= htmlspecialchars($v['platenumber']) ?>)
                                                 </option>
                                             <?php endforeach; ?>
                                         </select>
@@ -429,7 +433,7 @@ $conn->close();
                         </form>
 
                         <div class="report-actions">
-                            <?php if (!empty($reportData)): ?>
+                            <?php if (!empty($reportData) || ($reportType === 'income-expense' && !empty($selectedVehicleId))): ?>
                                 <button class="btn btn-primary" id="export-pdf">
                                     <i class="bi bi-file-earmark-pdf me-1"></i> Export as PDF
                                 </button>
@@ -451,202 +455,204 @@ $conn->close();
                         </h3>
 
                         <?php if ($reportType !== 'income-expense'): ?>
-                        <div class="table-responsive">
-                            <table class="table table-hover table-striped" id="report-table">
-                                <thead>
-                                    <?php if ($reportType === 'bookings'): ?>
-                                        <tr>
-                                            <th>Booking ID</th>
-                                            <th>Customer</th>
-                                            <th>Vehicle</th>
-                                            <th>Pickup</th>
-                                            <th>Dropoff</th>
-                                            <th>Date & Time</th>
-                                            <th>Amount</th>
-                                            <th>Status</th>
-                                            <th>Created At</th>
-                                        </tr>
-
-                                    <?php elseif ($reportType === 'revenue'): ?>
-                                        <tr>
-                                            <th>Payment ID</th>
-                                            <th>Booking ID</th>
-                                            <th>Customer</th>
-                                            <th>Amount Due</th>
-                                            <th>Amount Paid</th>
-                                            <th>Method</th>
-                                            <th>Status</th>
-                                            <th>Paid At</th>
-                                            <th>Receipt #</th>
-                                        </tr>
-
-                                    <?php elseif ($reportType === 'vehicles'): ?>
-                                        <tr>
-                                            <th>Vehicle</th>
-                                            <th>Plate Number</th>
-                                            <th>Type</th>
-                                            <th>Bookings</th>
-                                            <th>Revenue</th>
-                                            <th>Distance</th>
-                                            <th>Avg. Usage</th>
-                                            <th>Status</th>
-                                        </tr>
-
-                                    <?php elseif ($reportType === 'customers'): ?>
-                                        <tr>
-                                            <th>Customer</th>
-                                            <th>Contact</th>
-                                            <th>Bookings</th>
-                                            <th>Total Spent</th>
-                                            <th>Last Booking</th>
-                                        </tr>
-
-                                    <?php elseif ($reportType === 'ratings'): ?>
-                                        <tr>
-                                            <th>Rating ID</th>
-                                            <th>Booking ID</th>
-                                            <th>Customer</th>
-                                            <th>Vehicle</th>
-                                            <th>Driver</th>
-                                            <th>Rating</th>
-                                            <th>Comments</th>
-                                            <th>Rated At</th>
-                                            <th>Booking Date</th>
-                                        </tr>
-
-                                    <?php elseif ($reportType === 'ratings_summary'): ?>
-                                        <tr>
-                                            <th>Category</th>
-                                            <th>Total Ratings</th>
-                                            <th>Average</th>
-                                            <th>Min</th>
-                                            <th>Max</th>
-                                            <th>5★</th>
-                                            <th>4★</th>
-                                            <th>3★</th>
-                                            <th>2★</th>
-                                            <th>1★</th>
-                                            <th>Satisfaction %</th>
-                                        </tr>
-
-                                    <?php endif; ?>
-                                </thead>
-                                <tbody>
-                                    <?php foreach ($reportData as $row): ?>
+                            <div class="table-responsive">
+                                <table class="table table-hover table-striped" id="report-table">
+                                    <thead>
                                         <?php if ($reportType === 'bookings'): ?>
                                             <tr>
-                                                <td><?= $row['booking_id'] ?></td>
-                                                <td><?= $row['full_name'] ?></td>
-                                                <td><?= $row['vehicle_name'] ?? 'N/A' ?></td>
-                                                <td><?= $row['pickup_location'] ?></td>
-                                                <td><?= $row['dropoff_location'] ?></td>
-                                                <td><?= date('M d, Y', strtotime($row['date'])) . ' ' . $row['time'] ?></td>
-                                                <td class="fw-bold">₱<?= number_format($row['total_price'], 2) ?></td>
-                                                <td>
-                                                    <span class="status-indicator status-<?= $row['status'] ?>"></span>
-                                                    <?= ucwords(str_replace('_', ' ', $row['status'])) ?>
-                                                </td>
-                                                <td><?= $row['created_at'] ?></td>
+                                                <th>Booking ID</th>
+                                                <th>Customer</th>
+                                                <th>Vehicle</th>
+                                                <th>Pickup</th>
+                                                <th>Dropoff</th>
+                                                <th>Date & Time</th>
+                                                <th>Amount</th>
+                                                <th>Status</th>
+                                                <th>Created At</th>
                                             </tr>
 
                                         <?php elseif ($reportType === 'revenue'): ?>
                                             <tr>
-                                                <td><?= $row['payment_id'] ?></td>
-                                                <td><?= $row['booking_id'] ?></td>
-                                                <td><?= $row['full_name'] ?></td>
-                                                <td>₱<?= number_format($row['amount_due'], 2) ?></td>
-                                                <td class="fw-bold">₱<?= number_format($row['amount_received'], 2) ?></td>
-                                                <td><?= ucfirst($row['payment_method']) ?></td>
-                                                <td><?= ucfirst($row['payment_status']) ?></td>
-                                                <td><?= $row['paid_at_formatted'] ?></td>
-                                                <td><?= $row['receipt_number'] ?? 'N/A' ?></td>
+                                                <th>Payment ID</th>
+                                                <th>Booking ID</th>
+                                                <th>Customer</th>
+                                                <th>Amount Due</th>
+                                                <th>Amount Paid</th>
+                                                <th>Method</th>
+                                                <th>Status</th>
+                                                <th>Paid At</th>
+                                                <th>Receipt #</th>
                                             </tr>
 
                                         <?php elseif ($reportType === 'vehicles'): ?>
                                             <tr>
-                                                <td><?= $row['name'] ?> (<?= $row['model'] ?>)</td>
-                                                <td><?= $row['platenumber'] ?></td>
-                                                <td><?= $row['type'] ?></td>
-                                                <td><?= $row['total_bookings'] ?></td>
-                                                <td class="fw-bold">₱<?= number_format($row['total_revenue'] ?? 0, 2) ?></td>
-                                                <td><?= number_format($row['total_distance'] ?? 0) ?> km</td>
-                                                <td><?= $row['avg_usage_time'] ?? 'N/A' ?></td>
-                                                <td><?= ucwords($row['status']) ?></td>
+                                                <th>Vehicle</th>
+                                                <th>Plate Number</th>
+                                                <th>Type</th>
+                                                <th>Bookings</th>
+                                                <th>Revenue</th>
+                                                <th>Distance</th>
+                                                <th>Avg. Usage</th>
+                                                <th>Status</th>
                                             </tr>
 
                                         <?php elseif ($reportType === 'customers'): ?>
                                             <tr>
-                                                <td>
-                                                    <a href="?report-type=bookings&customer=<?= $row['uid'] ?>&date-start=<?= $startDate ?>&date-end=<?= $endDate ?>"
-                                                        class="text-primary fw-bold text-decoration-none"
-                                                        title="View all bookings for this customer">
-                                                        <?= htmlspecialchars($row['full_name']) ?> <i
-                                                            class="bi bi-box-arrow-up-right ms-1"
-                                                            style="font-size: 0.8rem;"></i>
-                                                    </a>
-                                                </td>
-                                                <td><?= $row['email_address'] ?><br><?= $row['contact_number'] ?></td>
-                                                <td><?= $row['total_bookings'] ?></td>
-                                                <td class="fw-bold">₱<?= number_format($row['total_spent'] ?? 0, 2) ?></td>
-                                                <td><?= $row['last_booking_date'] ? date('M d, Y', strtotime($row['last_booking_date'])) : 'N/A' ?>
-                                                </td>
+                                                <th>Customer</th>
+                                                <th>Contact</th>
+                                                <th>Bookings</th>
+                                                <th>Total Spent</th>
+                                                <th>Last Booking</th>
                                             </tr>
 
                                         <?php elseif ($reportType === 'ratings'): ?>
                                             <tr>
-                                                <td><?= substr($row['rating_id'], 0, 8) ?>...</td>
-                                                <td><?= substr($row['booking_id'], 0, 8) ?>...</td>
-                                                <td><?= htmlspecialchars($row['customer_name']) ?></td>
-                                                <td><?= htmlspecialchars($row['vehicle_name'] ?? 'N/A') ?></td>
-                                                <td><?= htmlspecialchars($row['driver_name']) ?></td>
-                                                <td>
-                                                    <span class="star-rating overall">
-                                                        <?= str_repeat('*', $row['overall_rating']) ?>        <?= str_repeat('o', 5 - $row['overall_rating']) ?>
-                                                        <span class="rating-number">(<?= $row['overall_rating'] ?>/5)</span>
-                                                    </span>
-                                                </td>
-                                                <td><?= $row['comments'] ? nl2br(htmlspecialchars(substr($row['comments'], 0, 100))) . (strlen($row['comments']) > 100 ? '...' : '') : 'No comments' ?>
-                                                </td>
-                                                <td><?= $row['rated_at'] ?></td>
-                                                <td><?= $row['booking_date'] ?></td>
+                                                <th>Rating ID</th>
+                                                <th>Booking ID</th>
+                                                <th>Customer</th>
+                                                <th>Vehicle</th>
+                                                <th>Driver</th>
+                                                <th>Rating</th>
+                                                <th>Comments</th>
+                                                <th>Rated At</th>
+                                                <th>Booking Date</th>
                                             </tr>
 
                                         <?php elseif ($reportType === 'ratings_summary'): ?>
                                             <tr>
-                                                <td class="fw-bold"><?= $row['category'] ?></td>
-                                                <td><?= $row['total_ratings'] ?></td>
-                                                <td>
-                                                    <span
-                                                        class="fw-bold text-primary"><?= number_format($row['average_rating'], 1) ?></span>
-                                                    <span class="star-rating small">
-                                                        <?= str_repeat('*', round($row['average_rating'])) ?>        <?= str_repeat('o', 5 - round($row['average_rating'])) ?>
-                                                    </span>
-                                                </td>
-                                                <td><?= $row['min_rating'] ?></td>
-                                                <td><?= $row['max_rating'] ?></td>
-                                                <td class="text-success"><?= $row['five_stars'] ?></td>
-                                                <td class="text-info"><?= $row['four_stars'] ?></td>
-                                                <td class="text-warning"><?= $row['three_stars'] ?></td>
-                                                <td class="text-warning"><?= $row['two_stars'] ?></td>
-                                                <td class="text-danger"><?= $row['one_star'] ?></td>
-                                                <td class="fw-bold text-success"><?= $row['satisfaction_percentage'] ?>%</td>
+                                                <th>Category</th>
+                                                <th>Total Ratings</th>
+                                                <th>Average</th>
+                                                <th>Min</th>
+                                                <th>Max</th>
+                                                <th>5★</th>
+                                                <th>4★</th>
+                                                <th>3★</th>
+                                                <th>2★</th>
+                                                <th>1★</th>
+                                                <th>Satisfaction %</th>
                                             </tr>
 
                                         <?php endif; ?>
-                                    <?php endforeach; ?>
+                                    </thead>
+                                    <tbody>
+                                        <?php foreach ($reportData as $row): ?>
+                                            <?php if ($reportType === 'bookings'): ?>
+                                                <tr>
+                                                    <td><?= $row['booking_id'] ?></td>
+                                                    <td><?= $row['full_name'] ?></td>
+                                                    <td><?= $row['vehicle_name'] ?? 'N/A' ?></td>
+                                                    <td><?= $row['pickup_location'] ?></td>
+                                                    <td><?= $row['dropoff_location'] ?></td>
+                                                    <td><?= date('M d, Y', strtotime($row['date'])) . ' ' . $row['time'] ?></td>
+                                                    <td class="fw-bold">₱<?= number_format($row['total_price'], 2) ?></td>
+                                                    <td>
+                                                        <span class="status-indicator status-<?= $row['status'] ?>"></span>
+                                                        <?= ucwords(str_replace('_', ' ', $row['status'])) ?>
+                                                    </td>
+                                                    <td><?= $row['created_at'] ?></td>
+                                                </tr>
 
-                                    <?php if (empty($reportData)): ?>
-                                        <tr>
-                                            <td colspan="10" class="text-center py-5">
-                                                <i class="bi bi-database-exclamation fs-1 text-muted"></i>
-                                                <h4 class="mt-3">No data found for selected criteria</h4>
-                                                <p class="text-muted">Try adjusting your date range or report type</p>
-                                            </td>
-                                        </tr>
-                                    <?php endif; ?>
-                                </tbody>
-                            </table>
-                        </div>
+                                            <?php elseif ($reportType === 'revenue'): ?>
+                                                <tr>
+                                                    <td><?= $row['payment_id'] ?></td>
+                                                    <td><?= $row['booking_id'] ?></td>
+                                                    <td><?= $row['full_name'] ?></td>
+                                                    <td>₱<?= number_format($row['amount_due'], 2) ?></td>
+                                                    <td class="fw-bold">₱<?= number_format($row['amount_received'], 2) ?></td>
+                                                    <td><?= ucfirst($row['payment_method']) ?></td>
+                                                    <td><?= ucfirst($row['payment_status']) ?></td>
+                                                    <td><?= $row['paid_at_formatted'] ?></td>
+                                                    <td><?= $row['receipt_number'] ?? 'N/A' ?></td>
+                                                </tr>
+
+                                            <?php elseif ($reportType === 'vehicles'): ?>
+                                                <tr>
+                                                    <td><?= $row['name'] ?> (<?= $row['model'] ?>)</td>
+                                                    <td><?= $row['platenumber'] ?></td>
+                                                    <td><?= $row['type'] ?></td>
+                                                    <td><?= $row['total_bookings'] ?></td>
+                                                    <td class="fw-bold">₱<?= number_format($row['total_revenue'] ?? 0, 2) ?></td>
+                                                    <td><?= number_format($row['total_distance'] ?? 0) ?> km</td>
+                                                    <td><?= $row['avg_usage_time'] ?? 'N/A' ?></td>
+                                                    <td><?= ucwords($row['status']) ?></td>
+                                                </tr>
+
+                                            <?php elseif ($reportType === 'customers'): ?>
+                                                <tr>
+                                                    <td>
+                                                        <a href="?report-type=bookings&customer=<?= $row['uid'] ?>&date-start=<?= $startDate ?>&date-end=<?= $endDate ?>"
+                                                            class="text-primary fw-bold text-decoration-none"
+                                                            title="View all bookings for this customer">
+                                                            <?= htmlspecialchars($row['full_name']) ?> <i
+                                                                class="bi bi-box-arrow-up-right ms-1"
+                                                                style="font-size: 0.8rem;"></i>
+                                                        </a>
+                                                    </td>
+                                                    <td><?= $row['email_address'] ?><br><?= $row['contact_number'] ?></td>
+                                                    <td><?= $row['total_bookings'] ?></td>
+                                                    <td class="fw-bold">₱<?= number_format($row['total_spent'] ?? 0, 2) ?></td>
+                                                    <td><?= $row['last_booking_date'] ? date('M d, Y', strtotime($row['last_booking_date'])) : 'N/A' ?>
+                                                    </td>
+                                                </tr>
+
+                                            <?php elseif ($reportType === 'ratings'): ?>
+                                                <tr>
+                                                    <td><?= substr($row['rating_id'], 0, 8) ?>...</td>
+                                                    <td><?= substr($row['booking_id'], 0, 8) ?>...</td>
+                                                    <td><?= htmlspecialchars($row['customer_name']) ?></td>
+                                                    <td><?= htmlspecialchars($row['vehicle_name'] ?? 'N/A') ?></td>
+                                                    <td><?= htmlspecialchars($row['driver_name']) ?></td>
+                                                    <td>
+                                                        <span class="star-rating overall">
+                                                            <?= str_repeat('*', $row['overall_rating']) ?>
+                                                            <?= str_repeat('o', 5 - $row['overall_rating']) ?>
+                                                            <span class="rating-number">(<?= $row['overall_rating'] ?>/5)</span>
+                                                        </span>
+                                                    </td>
+                                                    <td><?= $row['comments'] ? nl2br(htmlspecialchars(substr($row['comments'], 0, 100))) . (strlen($row['comments']) > 100 ? '...' : '') : 'No comments' ?>
+                                                    </td>
+                                                    <td><?= $row['rated_at'] ?></td>
+                                                    <td><?= $row['booking_date'] ?></td>
+                                                </tr>
+
+                                            <?php elseif ($reportType === 'ratings_summary'): ?>
+                                                <tr>
+                                                    <td class="fw-bold"><?= $row['category'] ?></td>
+                                                    <td><?= $row['total_ratings'] ?></td>
+                                                    <td>
+                                                        <span
+                                                            class="fw-bold text-primary"><?= number_format($row['average_rating'], 1) ?></span>
+                                                        <span class="star-rating small">
+                                                            <?= str_repeat('*', round($row['average_rating'])) ?>
+                                                            <?= str_repeat('o', 5 - round($row['average_rating'])) ?>
+                                                        </span>
+                                                    </td>
+                                                    <td><?= $row['min_rating'] ?></td>
+                                                    <td><?= $row['max_rating'] ?></td>
+                                                    <td class="text-success"><?= $row['five_stars'] ?></td>
+                                                    <td class="text-info"><?= $row['four_stars'] ?></td>
+                                                    <td class="text-warning"><?= $row['three_stars'] ?></td>
+                                                    <td class="text-warning"><?= $row['two_stars'] ?></td>
+                                                    <td class="text-danger"><?= $row['one_star'] ?></td>
+                                                    <td class="fw-bold text-success"><?= $row['satisfaction_percentage'] ?>%</td>
+                                                </tr>
+
+                                            <?php endif; ?>
+                                        <?php endforeach; ?>
+
+                                        <?php if (empty($reportData)): ?>
+                                            <tr>
+                                                <td colspan="10" class="text-center py-5">
+                                                    <i class="bi bi-database-exclamation fs-1 text-muted"></i>
+                                                    <h4 class="mt-3">No data found for selected criteria</h4>
+                                                    <p class="text-muted">Try adjusting your date range or report type</p>
+                                                </td>
+                                            </tr>
+                                        <?php endif; ?>
+                                    </tbody>
+                                </table>
+                            </div>
                         <?php else: ?>
                             <?php if (empty($selectedVehicleId)): ?>
                                 <div class="alert alert-info py-4 text-center mt-4">
@@ -655,13 +661,13 @@ $conn->close();
                                 </div>
                             <?php else: ?>
                                 <?php
-                                    $totalExpenses = 0;
-                                    foreach ($expenseData as $exp) {
-                                        $totalExpenses += floatval($exp['amount']);
-                                    }
-                                    $netProfit = $grossIncome - $totalExpenses;
-                                    $adminShare = $netProfit * 0.60;
-                                    $driverShare = $netProfit * 0.40;
+                                $totalExpenses = 0;
+                                foreach ($expenseData as $exp) {
+                                    $totalExpenses += floatval($exp['amount']);
+                                }
+                                $netProfit = $grossIncome - $totalExpenses;
+                                $adminShare = $netProfit * 0.60;
+                                $driverShare = $netProfit * 0.40;
                                 ?>
 
                                 <div class="d-flex justify-content-between align-items-center mb-3 mt-4">
@@ -684,19 +690,25 @@ $conn->close();
                                             <?php foreach ($expenseData as $exp): ?>
                                                 <tr>
                                                     <td><?= date('M d, Y', strtotime($exp['expense_date'])) ?></td>
-                                                    <td><span class="badge bg-secondary"><?= htmlspecialchars($exp['expense_type']) ?></span></td>
+                                                    <td><span
+                                                            class="badge bg-secondary"><?= htmlspecialchars($exp['expense_type']) ?></span>
+                                                    </td>
                                                     <td><?= htmlspecialchars($exp['description']) ?></td>
                                                     <td class="text-end text-danger">-<?= number_format($exp['amount'], 2) ?></td>
                                                 </tr>
                                             <?php endforeach; ?>
                                             <?php if (empty($expenseData)): ?>
-                                                <tr><td colspan="4" class="text-center text-muted py-3">No expenses recorded for this period.</td></tr>
+                                                <tr>
+                                                    <td colspan="4" class="text-center text-muted py-3">No expenses recorded for
+                                                        this period.</td>
+                                                </tr>
                                             <?php endif; ?>
                                         </tbody>
                                         <tfoot class="table-group-divider">
                                             <tr>
                                                 <th colspan="3" class="text-end">Total Expenses:</th>
-                                                <th class="text-end text-danger fs-5">-<?= number_format($totalExpenses, 2) ?></th>
+                                                <th class="text-end text-danger fs-5">-<?= number_format($totalExpenses, 2) ?>
+                                                </th>
                                             </tr>
                                         </tfoot>
                                     </table>
@@ -708,17 +720,20 @@ $conn->close();
                                         <tbody>
                                             <tr>
                                                 <td class="fw-bold fs-5">Gross Income (Total Earnings)</td>
-                                                <td class="text-end fw-bold text-success fs-5">₱<?= number_format($grossIncome, 2) ?></td>
+                                                <td class="text-end fw-bold text-success fs-5">
+                                                    ₱<?= number_format($grossIncome, 2) ?></td>
                                             </tr>
                                             <tr>
                                                 <td class="fw-bold fs-5">Less: Total Expenses</td>
-                                                <td class="text-end text-danger fs-5">-<?= number_format($totalExpenses, 2) ?></td>
+                                                <td class="text-end text-danger fs-5">-<?= number_format($totalExpenses, 2) ?>
+                                                </td>
                                             </tr>
                                         </tbody>
                                         <tfoot class="table-group-divider table-light">
                                             <tr>
                                                 <th class="fs-4">Net Profit (Clean Income)</th>
-                                                <th class="text-end fw-bold fs-3 <?= $netProfit >= 0 ? 'text-primary' : 'text-danger' ?>">
+                                                <th
+                                                    class="text-end fw-bold fs-3 <?= $netProfit >= 0 ? 'text-primary' : 'text-danger' ?>">
                                                     ₱<?= number_format($netProfit, 2) ?>
                                                 </th>
                                             </tr>
@@ -742,12 +757,14 @@ $conn->close();
                                                     <tr>
                                                         <td class="fw-bold">Admin / Operator</td>
                                                         <td>60% of Net Profit</td>
-                                                        <td class="text-end text-success fw-bold">₱<?= number_format($adminShare, 2) ?></td>
+                                                        <td class="text-end text-success fw-bold">
+                                                            ₱<?= number_format($adminShare, 2) ?></td>
                                                     </tr>
                                                     <tr>
                                                         <td class="fw-bold">Driver</td>
                                                         <td>40% of Net Profit</td>
-                                                        <td class="text-end text-success fw-bold">₱<?= number_format($driverShare, 2) ?></td>
+                                                        <td class="text-end text-success fw-bold">
+                                                            ₱<?= number_format($driverShare, 2) ?></td>
                                                     </tr>
                                                 </tbody>
                                             </table>
@@ -807,7 +824,8 @@ $conn->close();
             <div class="modal-body">
                 <div class="mb-3">
                     <label for="expense_date" class="form-label">Date</label>
-                    <input type="date" class="form-control" id="expense_date" name="expense_date" required max="<?= date('Y-m-d') ?>" value="<?= date('Y-m-d') ?>">
+                    <input type="date" class="form-control" id="expense_date" name="expense_date" required
+                        max="<?= date('Y-m-d') ?>" value="<?= date('Y-m-d') ?>">
                 </div>
                 <div class="mb-3">
                     <label for="expense_type" class="form-label">Expense Type</label>
@@ -820,11 +838,13 @@ $conn->close();
                 </div>
                 <div class="mb-3">
                     <label for="amount" class="form-label">Amount (₱)</label>
-                    <input type="number" step="0.01" min="0.01" class="form-control" id="amount" name="amount" required placeholder="0.00">
+                    <input type="number" step="0.01" min="0.01" class="form-control" id="amount" name="amount" required
+                        placeholder="0.00">
                 </div>
                 <div class="mb-3">
                     <label for="description" class="form-label">Description (Optional)</label>
-                    <textarea class="form-control" id="description" name="description" rows="2" placeholder="Brief details about this expense..."></textarea>
+                    <textarea class="form-control" id="description" name="description" rows="2"
+                        placeholder="Brief details about this expense..."></textarea>
                 </div>
             </div>
             <div class="modal-footer">
@@ -845,17 +865,17 @@ $conn->close();
 <script>
     $(document).ready(function () {
 
-        $('#add-expense-form').submit(function(e) {
+        $('#add-expense-form').submit(function (e) {
             e.preventDefault();
             const btn = $('#save-expense-btn');
             btn.prop('disabled', true).text('Saving...');
-            
+
             $.ajax({
                 url: 'controller/report/add-expense.php',
                 type: 'POST',
                 data: $(this).serialize(),
                 dataType: 'json',
-                success: function(response) {
+                success: function (response) {
                     if (response.status === 'success') {
                         $('#addExpenseModal').modal('hide');
                         showNotification('Expense saved successfully!', 'success');
@@ -865,7 +885,7 @@ $conn->close();
                         btn.prop('disabled', false).text('Save Expense');
                     }
                 },
-                error: function() {
+                error: function () {
                     showNotification('A network error occurred. Please try again.', 'error');
                     btn.prop('disabled', false).text('Save Expense');
                 }
@@ -873,7 +893,7 @@ $conn->close();
         });
 
         // Added based on instruction 4: Javascript snippet to toggle the vehicle dropdown
-        $('#report-type').change(function() {
+        $('#report-type').change(function () {
             if ($(this).val() === 'income-expense') {
                 $('#vehicle-select-container').show();
             } else {
@@ -907,7 +927,8 @@ $conn->close();
             const reportData = {
                 report_type: '<?= $reportType ?>',
                 start_date: '<?= $startDate ?>',
-                end_date: '<?= $endDate ?>'
+                end_date: '<?= $endDate ?>',
+                vehicle_id: $('#vehicle_id').val()
             };
 
             fetch('controller/report/generate-pdf.php', {
@@ -952,7 +973,8 @@ $conn->close();
             const reportData = {
                 report_type: '<?= $reportType ?>',
                 start_date: '<?= $startDate ?>',
-                end_date: '<?= $endDate ?>'
+                end_date: '<?= $endDate ?>',
+                vehicle_id: $('#vehicle_id').val()
             };
 
             fetch('controller/report/generate-pdf.php', {

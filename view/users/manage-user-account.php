@@ -138,13 +138,13 @@
             <div class="mb-3">
               <label for="password" class="form-label">Password:</label>
               <input type="password" class="form-control" id="password" name="password" placeholder="Password" required
-                oninput="checkPasswordStrength()">
+                oninput="checkPasswordStrength()" autocomplete="new-password">
               <div class="form-text" id="password-strength"></div>
             </div>
             <div class="mb-3">
               <label for="confirm_password" class="form-label">Confirm Password:</label>
               <input type="password" class="form-control" id="confirm_password" name="confirm_password"
-                placeholder="Confirm Password" required oninput="checkPasswordMatch()">
+                placeholder="Confirm Password" required oninput="checkPasswordMatch()" autocomplete="new-password">
               <div class="form-text" id="password-match"></div>
             </div>
             <div class="mb-3">
@@ -201,13 +201,14 @@
             </div>
             <div class="mb-3">
               <label for="update_password" class="form-label">Password:</label>
-              <input type="password" class="form-control" id="update_password" name="password" placeholder="Password">
+              <input type="password" class="form-control" id="update_password" name="password" placeholder="Password"
+                autocomplete="new-password">
               <div class="form-text" id="update-password-strength"></div>
             </div>
             <div class="mb-3">
               <label for="update_confirm_password" class="form-label">Confirm Password:</label>
               <input type="password" class="form-control" id="update_confirm_password" name="confirm_password"
-                placeholder="Confirm Password">
+                placeholder="Confirm Password" autocomplete="new-password">
               <div class="form-text" id="update-password-match"></div>
             </div>
             <div class="mb-3">
@@ -283,7 +284,7 @@
       text: `Are you sure you want to change this user's status to ${status}?`,
       icon: "warning",
       showCancelButton: true,
-      confirmButtonColor: status === \'Archived\' ? "#dc3545" : "#0d6efd",
+      confirmButtonColor: status === 'Archived' ? "#dc3545" : "#0d6efd",
       cancelButtonColor: "#6c757d",
       confirmButtonText: "Yes, change it!"
     }).then((result) => {

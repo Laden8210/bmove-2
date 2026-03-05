@@ -12,6 +12,7 @@ ini_set('session.cookie_secure', $_SERVER['HTTP_HOST'] !== 'localhost');
 ini_set('session.use_strict_mode', 1);
 
 session_start();
+$startTime = microtime(true);
 
 header('Content-Type: application/json; charset=utf-8');
 header('Access-Control-Allow-Origin: *');
@@ -47,6 +48,7 @@ foreach ($requiredFields as $field) {
 $reportType = filter_var($request_body['report_type'], FILTER_SANITIZE_STRING);
 $startDate = filter_var($request_body['start_date'], FILTER_SANITIZE_STRING);
 $endDate = filter_var($request_body['end_date'], FILTER_SANITIZE_STRING);
+$vehicleId = isset($request_body['vehicle_id']) ? filter_var($request_body['vehicle_id'], FILTER_SANITIZE_STRING) : null;
 
 try {
     // Configure DOMPDF options
@@ -54,7 +56,7 @@ try {
     $options->set('defaultFont', 'Arial');
     $options->set('isRemoteEnabled', true);
     $options->set('isHtml5ParserEnabled', true);
-    
+
     $dompdf = new Dompdf($options);
 
     // Generate report data based on type
@@ -97,7 +99,7 @@ try {
             $stmt->bind_param("ss", $startDate, $endDate);
             $stmt->execute();
             $reportData = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
-            
+
             // Calculate total revenue
             foreach ($reportData as $row) {
                 $totalAmount += floatval($row['amount_received']);
@@ -195,6 +197,45 @@ try {
             $reportData = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
             break;
 
+        case 'income-expense':
+            $reportTitle = 'Vehicle Income & Expense Report';
+            if (!$vehicleId) {
+                throw new Exception('Vehicle ID is required for Income & Expense report');
+            }
+
+            // Fetch Vehicle Details
+            $vStmt = $conn->prepare("SELECT name, platenumber FROM vehicles WHERE vehicleid = ?");
+            $vStmt->bind_param("s", $vehicleId);
+            $vStmt->execute();
+            $vRes = $vStmt->get_result();
+            if ($vRes->num_rows > 0) {
+                $vData = $vRes->fetch_assoc();
+                $reportTitle .= ' - ' . htmlspecialchars($vData['name'] . ' (' . $vData['platenumber'] . ')');
+            }
+
+            // Fetch Expenses
+            $expStmt = $conn->prepare("SELECT expense_date, expense_type, description, amount FROM vehicle_expenses WHERE vehicle_id = ? AND expense_date BETWEEN ? AND ? ORDER BY expense_date DESC");
+            $expStmt->bind_param("sss", $vehicleId, $startDate, $endDate);
+            $expStmt->execute();
+            $expenseData = $expStmt->get_result()->fetch_all(MYSQLI_ASSOC);
+
+            // Fetch Gross Income
+            $incStmt = $conn->prepare("
+                SELECT SUM(p.amount_received) as gross_income 
+                FROM payments p 
+                JOIN bookings b ON p.booking_id = b.booking_id 
+                WHERE b.vehicle_id = ? AND b.date BETWEEN ? AND ? AND p.payment_status = 'paid'
+            ");
+            $incStmt->bind_param("sss", $vehicleId, $startDate, $endDate);
+            $incStmt->execute();
+            $grossIncome = $incStmt->get_result()->fetch_assoc()['gross_income'] ?? 0;
+
+            $reportData = [
+                'expenses' => $expenseData,
+                'gross_income' => $grossIncome
+            ];
+            break;
+
         default:
             throw new Exception('Invalid report type');
     }
@@ -216,13 +257,29 @@ try {
 
     // Output the PDF
     $output = $dompdf->output();
-    
+
     // Save to file
     $filepath = '../../uploads/reports/' . $filename;
     if (!file_exists('../../uploads/reports/')) {
         mkdir('../../uploads/reports/', 0755, true);
     }
     file_put_contents($filepath, $output);
+
+    // Track generation
+    $fileSize = filesize($filepath);
+    $generationTime = round(microtime(true) - $startTime, 3);
+    $generatedBy = $_SESSION['auth']['user_id'];
+    $dbFilepath = 'uploads/reports/' . $filename;
+
+    $trackStmt = $conn->prepare("
+        INSERT INTO report_generations (report_type, start_date, end_date, generated_by, file_path, file_size, generation_time) 
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+    ");
+    if ($trackStmt) {
+        $trackStmt->bind_param("sssssid", $reportType, $startDate, $endDate, $generatedBy, $dbFilepath, $fileSize, $generationTime);
+        $trackStmt->execute();
+        $trackStmt->close();
+    }
 
     echo json_encode([
         'status' => 'success',
@@ -242,7 +299,8 @@ try {
     ]);
 }
 
-function generateReportHTML($title, $data, $startDate, $endDate, $totalAmount, $reportType) {
+function generateReportHTML($title, $data, $startDate, $endDate, $totalAmount, $reportType)
+{
     $html = '
     <!DOCTYPE html>
     <html>
@@ -430,6 +488,13 @@ function generateReportHTML($title, $data, $startDate, $endDate, $totalAmount, $
                     <th>1 Star</th>
                     <th>Satisfaction %</th>';
             break;
+        case 'income-expense':
+            $html .= '
+                    <th style="width: 15%">Date</th>
+                    <th style="width: 25%">Expense Type</th>
+                    <th style="width: 40%">Description</th>
+                    <th style="width: 20%" class="text-end">Amount (₱)</th>';
+            break;
     }
 
     $html .= '
@@ -437,88 +502,152 @@ function generateReportHTML($title, $data, $startDate, $endDate, $totalAmount, $
             </thead>
             <tbody>';
 
-    // Generate table rows
-    foreach ($data as $row) {
-        $html .= '<tr>';
-        
-        switch ($reportType) {
-            case 'bookings':
-                $html .= '
-                    <td>' . htmlspecialchars(substr($row['booking_id'], 0, 8)) . '...</td>
-                    <td>' . htmlspecialchars($row['full_name']) . '</td>
-                    <td>' . htmlspecialchars($row['vehicle_name']) . '</td>
-                    <td>' . htmlspecialchars($row['pickup_location']) . '</td>
-                    <td>' . htmlspecialchars($row['dropoff_location']) . '</td>
-                    <td>' . htmlspecialchars($row['date']) . '</td>
-                    <td>' . htmlspecialchars($row['time']) . '</td>
-                    <td>₱' . number_format($row['total_price'], 2) . '</td>
-                    <td><span class="status-badge status-' . $row['status'] . '">' . strtoupper($row['status']) . '</span></td>
-                    <td>' . htmlspecialchars($row['created_at']) . '</td>';
-                break;
-            case 'revenue':
-                $html .= '
-                    <td>' . htmlspecialchars(substr($row['payment_id'], 0, 8)) . '...</td>
-                    <td>' . htmlspecialchars(substr($row['booking_id'], 0, 8)) . '...</td>
-                    <td>' . htmlspecialchars($row['full_name']) . '</td>
-                    <td>₱' . number_format($row['amount_due'], 2) . '</td>
-                    <td>₱' . number_format($row['amount_received'], 2) . '</td>
-                    <td>' . strtoupper($row['payment_method']) . '</td>
-                    <td><span class="status-badge status-' . $row['payment_status'] . '">' . strtoupper($row['payment_status']) . '</span></td>
-                    <td>' . htmlspecialchars($row['paid_at_formatted']) . '</td>';
-                break;
-            case 'vehicles':
-                $html .= '
-                    <td>' . htmlspecialchars(substr($row['vehicleid'], 0, 8)) . '...</td>
-                    <td>' . htmlspecialchars($row['name']) . '</td>
-                    <td>' . htmlspecialchars($row['platenumber']) . '</td>
-                    <td>' . htmlspecialchars($row['type']) . '</td>
-                    <td>' . htmlspecialchars($row['model']) . '</td>
-                    <td>' . htmlspecialchars($row['year']) . '</td>
-                    <td>' . $row['total_bookings'] . '</td>
-                    <td>₱' . number_format($row['total_revenue'] ?? 0, 2) . '</td>
-                    <td>' . number_format($row['total_distance'] ?? 0, 2) . ' km</td>
-                    <td><span class="status-badge status-' . $row['status'] . '">' . strtoupper($row['status']) . '</span></td>';
-                break;
-            case 'customers':
-                $html .= '
-                    <td>' . htmlspecialchars(substr($row['uid'], 0, 8)) . '...</td>
-                    <td>' . htmlspecialchars($row['full_name']) . '</td>
-                    <td>' . htmlspecialchars($row['email_address']) . '</td>
-                    <td>' . htmlspecialchars($row['contact_number']) . '</td>
-                    <td>' . $row['total_bookings'] . '</td>
-                    <td>₱' . number_format($row['total_spent'] ?? 0, 2) . '</td>
-                    <td>' . htmlspecialchars($row['last_booking_date'] ?? 'N/A') . '</td>';
-                break;
-            case 'ratings':
-                $stars = str_repeat('*', $row['overall_rating']) . str_repeat('o', 5 - $row['overall_rating']);
-                $html .= '
-                    <td>' . htmlspecialchars(substr($row['rating_id'], 0, 8)) . '...</td>
-                    <td>' . htmlspecialchars(substr($row['booking_id'], 0, 8)) . '...</td>
-                    <td>' . htmlspecialchars($row['customer_name']) . '</td>
-                    <td>' . htmlspecialchars($row['vehicle_name'] ?? 'N/A') . '</td>
-                    <td>' . htmlspecialchars($row['driver_name']) . '</td>
-                    <td>' . $stars . ' (' . $row['overall_rating'] . '/5)</td>
-                    <td>' . htmlspecialchars(substr($row['comments'], 0, 50)) . (strlen($row['comments']) > 50 ? '...' : '') . '</td>
-                    <td>' . htmlspecialchars($row['rated_at']) . '</td>
-                    <td>' . htmlspecialchars($row['booking_date']) . '</td>';
-                break;
-            case 'ratings_summary':
-                $html .= '
-                    <td>' . htmlspecialchars($row['category']) . '</td>
-                    <td>' . $row['total_ratings'] . '</td>
-                    <td>' . $row['average_rating'] . '</td>
-                    <td>' . $row['min_rating'] . '</td>
-                    <td>' . $row['max_rating'] . '</td>
-                    <td>' . $row['five_stars'] . '</td>
-                    <td>' . $row['four_stars'] . '</td>
-                    <td>' . $row['three_stars'] . '</td>
-                    <td>' . $row['two_stars'] . '</td>
-                    <td>' . $row['one_star'] . '</td>
-                    <td>' . $row['satisfaction_percentage'] . '%</td>';
-                break;
+    if ($reportType === 'income-expense') {
+        $totalExpenses = 0;
+        if (empty($data['expenses'])) {
+            $html .= '<tr><td colspan="4" style="text-align:center;">No expenses recorded for this period.</td></tr>';
+        } else {
+            foreach ($data['expenses'] as $row) {
+                $totalExpenses += floatval($row['amount']);
+                $html .= '<tr>
+                    <td>' . date('M d, Y', strtotime($row['expense_date'])) . '</td>
+                    <td>' . htmlspecialchars($row['expense_type']) . '</td>
+                    <td>' . htmlspecialchars($row['description']) . '</td>
+                    <td style="text-align: right; color: #dc3545;">-₱' . number_format($row['amount'], 2) . '</td>
+                </tr>';
+            }
         }
-        
-        $html .= '</tr>';
+
+        $grossIncome = floatval($data['gross_income'] ?? 0);
+        $netProfit = $grossIncome - $totalExpenses;
+        $adminShare = $netProfit > 0 ? $netProfit * 0.60 : 0;
+        $driverShare = $netProfit > 0 ? $netProfit * 0.40 : 0;
+
+        $html .= '
+                </tbody>
+            </table>
+            
+            <h3 style="color: #4e73df; margin-top: 30px; margin-bottom: 10px;">Profit Calculation</h3>
+            <table>
+                <tbody>
+                    <tr>
+                        <td style="width: 70%;"><strong>Gross Income (Completed Bookings):</strong></td>
+                        <td style="width: 30%; text-align: right; color: #1cc88a; font-weight: bold;">₱' . number_format($grossIncome, 2) . '</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Total Vehicle Expenses:</strong></td>
+                        <td style="text-align: right; color: #e74a3b; font-weight: bold;">-₱' . number_format($totalExpenses, 2) . '</td>
+                    </tr>
+                    <tr style="background-color: #f8f9fc;">
+                        <td><strong style="font-size: 14px;">NET PROFIT:</strong></td>
+                        <td style="text-align: right; font-weight: bold; font-size: 14px; color: ' . ($netProfit >= 0 ? '#1cc88a' : '#e74a3b') . ';">₱' . number_format($netProfit, 2) . '</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3 style="color: #4e73df; margin-top: 30px; margin-bottom: 10px;">Profit Sharing (60/40)</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Recipient</th>
+                        <th>Sharing Rule</th>
+                        <th style="text-align: right;">Payout Amount</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>Admin / Operator</strong></td>
+                        <td>60% of Net Profit</td>
+                        <td style="text-align: right; font-weight: bold; color: #1cc88a;">₱' . number_format($adminShare, 2) . '</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Driver</strong></td>
+                        <td>40% of Net Profit</td>
+                        <td style="text-align: right; font-weight: bold; color: #1cc88a;">₱' . number_format($driverShare, 2) . '</td>
+                    </tr>';
+    } else {
+        foreach ($data as $row) {
+            $html .= '<tr>';
+
+            switch ($reportType) {
+                case 'bookings':
+                    $html .= '
+                        <td>' . htmlspecialchars(substr($row['booking_id'], 0, 8)) . '...</td>
+                        <td>' . htmlspecialchars($row['full_name']) . '</td>
+                        <td>' . htmlspecialchars($row['vehicle_name']) . '</td>
+                        <td>' . htmlspecialchars($row['pickup_location']) . '</td>
+                        <td>' . htmlspecialchars($row['dropoff_location']) . '</td>
+                        <td>' . htmlspecialchars($row['date']) . '</td>
+                        <td>' . htmlspecialchars($row['time']) . '</td>
+                        <td>₱' . number_format($row['total_price'], 2) . '</td>
+                        <td><span class="status-badge status-' . $row['status'] . '">' . strtoupper($row['status']) . '</span></td>
+                        <td>' . htmlspecialchars($row['created_at']) . '</td>';
+                    break;
+                case 'revenue':
+                    $html .= '
+                        <td>' . htmlspecialchars(substr($row['payment_id'], 0, 8)) . '...</td>
+                        <td>' . htmlspecialchars(substr($row['booking_id'], 0, 8)) . '...</td>
+                        <td>' . htmlspecialchars($row['full_name']) . '</td>
+                        <td>₱' . number_format($row['amount_due'], 2) . '</td>
+                        <td>₱' . number_format($row['amount_received'], 2) . '</td>
+                        <td>' . strtoupper($row['payment_method']) . '</td>
+                        <td><span class="status-badge status-' . $row['payment_status'] . '">' . strtoupper($row['payment_status']) . '</span></td>
+                        <td>' . htmlspecialchars($row['paid_at_formatted']) . '</td>';
+                    break;
+                case 'vehicles':
+                    $html .= '
+                        <td>' . htmlspecialchars(substr($row['vehicleid'], 0, 8)) . '...</td>
+                        <td>' . htmlspecialchars($row['name']) . '</td>
+                        <td>' . htmlspecialchars($row['platenumber']) . '</td>
+                        <td>' . htmlspecialchars($row['type']) . '</td>
+                        <td>' . htmlspecialchars($row['model']) . '</td>
+                        <td>' . htmlspecialchars($row['year']) . '</td>
+                        <td>' . $row['total_bookings'] . '</td>
+                        <td>₱' . number_format($row['total_revenue'] ?? 0, 2) . '</td>
+                        <td>' . number_format($row['total_distance'] ?? 0, 2) . ' km</td>
+                        <td><span class="status-badge status-' . $row['status'] . '">' . strtoupper($row['status']) . '</span></td>';
+                    break;
+                case 'customers':
+                    $html .= '
+                        <td>' . htmlspecialchars(substr($row['uid'], 0, 8)) . '...</td>
+                        <td>' . htmlspecialchars($row['full_name']) . '</td>
+                        <td>' . htmlspecialchars($row['email_address']) . '</td>
+                        <td>' . htmlspecialchars($row['contact_number']) . '</td>
+                        <td>' . $row['total_bookings'] . '</td>
+                        <td>₱' . number_format($row['total_spent'] ?? 0, 2) . '</td>
+                        <td>' . htmlspecialchars($row['last_booking_date'] ?? 'N/A') . '</td>';
+                    break;
+                case 'ratings':
+                    $stars = str_repeat('*', $row['overall_rating']) . str_repeat('o', 5 - $row['overall_rating']);
+                    $html .= '
+                        <td>' . htmlspecialchars(substr($row['rating_id'], 0, 8)) . '...</td>
+                        <td>' . htmlspecialchars(substr($row['booking_id'], 0, 8)) . '...</td>
+                        <td>' . htmlspecialchars($row['customer_name']) . '</td>
+                        <td>' . htmlspecialchars($row['vehicle_name'] ?? 'N/A') . '</td>
+                        <td>' . htmlspecialchars($row['driver_name']) . '</td>
+                        <td>' . $stars . ' (' . $row['overall_rating'] . '/5)</td>
+                        <td>' . htmlspecialchars(substr($row['comments'], 0, 50)) . (strlen($row['comments']) > 50 ? '...' : '') . '</td>
+                        <td>' . htmlspecialchars($row['rated_at']) . '</td>
+                        <td>' . htmlspecialchars($row['booking_date']) . '</td>';
+                    break;
+                case 'ratings_summary':
+                    $html .= '
+                        <td>' . htmlspecialchars($row['category']) . '</td>
+                        <td>' . $row['total_ratings'] . '</td>
+                        <td>' . $row['average_rating'] . '</td>
+                        <td>' . $row['min_rating'] . '</td>
+                        <td>' . $row['max_rating'] . '</td>
+                        <td>' . $row['five_stars'] . '</td>
+                        <td>' . $row['four_stars'] . '</td>
+                        <td>' . $row['three_stars'] . '</td>
+                        <td>' . $row['two_stars'] . '</td>
+                        <td>' . $row['one_star'] . '</td>
+                        <td>' . $row['satisfaction_percentage'] . '%</td>';
+                    break;
+            }
+
+            $html .= '</tr>';
+        }
     }
 
     $html .= '
