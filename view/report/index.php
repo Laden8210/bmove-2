@@ -6,7 +6,7 @@ $endDate = isset($_GET['date-end']) ? $_GET['date-end'] : date('Y-m-d');
 $reportData = [];
 $reportTitle = '';
 
-$vehiclesRes = $conn->query("SELECT vehicleid, name, platenumber FROM vehicles");
+$vehiclesRes = $conn->query("SELECT vehicleid, name, platenumber FROM vehicles ORDER BY name ASC");
 $vehiclesList = $vehiclesRes->fetch_all(MYSQLI_ASSOC);
 $selectedVehicleId = isset($_GET['vehicle_id']) ? $_GET['vehicle_id'] : '';
 $expenseData = [];
@@ -105,7 +105,7 @@ switch ($reportType) {
         $reportTitle = 'Customer Activity Report';
         $result = $conn->prepare("
             SELECT 
-                u.uid, u.full_name, u.email_address, u.contact_number,
+                u.uid, UPPER(u.full_name) AS full_name, u.email_address, u.contact_number,
                 COUNT(b.booking_id) AS total_bookings,
                 SUM(p.amount_received) AS total_spent,
                 MAX(b.date) AS last_booking_date

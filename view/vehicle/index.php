@@ -28,19 +28,18 @@
               <table class="table datatable">
                 <thead>
                   <tr>
-                    <th>Name</th>
-                    <th>Image</th>
-                    <th>Plate Number</th>
+                    <th>Type</th>
+                    <th data-sortable="false">Model</th>
+                    <th data-sortable="false">Plate Number</th>
+                    <th data-sortable="false">Image</th>
                     <th>Total Capacity (kg)</th>
-                    <th>Status</th>
+                    <th data-sortable="false">Status</th>
                     <th>Base Price</th>
                     <th>Rate per km</th>
-                    <th>Type</th>
-                    <th>Model</th>
                     <th>Year</th>
                     <th>Driver</th>
-                    <th data-type="date" data-format="YYYY/DD/MM">Date Added</th>
-                    <th>Action</th>
+                    <th data-type="date" data-format="YYYY/DD/MM" data-sortable="false">Date Added</th>
+                    <th data-sortable="false">Action</th>
                   </tr>
                 </thead>
 
@@ -52,16 +51,18 @@
                   if ($result && $result->num_rows > 0) {
                     while ($row = $result->fetch_assoc()) {
                       echo "<tr>";
+                      echo "<td>" . htmlspecialchars($row['type']) . "</td>";
+                      echo "<td>" . htmlspecialchars($row['model']) . "</td>";
+                      echo "<td>" . htmlspecialchars($row['platenumber']) . "</td>";
                       echo "<td>";
                       if (!empty($row['image_path'])) {
-                        echo "<img src='uploads/vehicles/" . htmlspecialchars($row['image_path']) . "' alt='" . htmlspecialchars($row['name']) . "' class='img-thumbnail' style='max-width: 100px;'>";
+                        echo "<img src='uploads/vehicles/" . htmlspecialchars($row['image_path']) . "' alt='" . htmlspecialchars($row['platenumber']) . "' class='img-thumbnail' style='max-width: 100px;'>";
                       } else {
                         echo "<span class='badge bg-secondary'>No Image</span>";
                       }
                       echo "</td>";
-                      echo "<td>" . htmlspecialchars($row['name']) . "</td>";
-                      echo "<td>" . htmlspecialchars($row['platenumber']) . "</td>";
                       echo "<td>" . number_format($row['totalcapacitykg']) . "</td>";
+
                       $status = ucwords($row['status']);
                       $badgeClass = 'secondary';
                       switch (strtolower($row['status'])) {
@@ -77,13 +78,16 @@
                         case 'unavailable':
                           $badgeClass = 'danger';
                           break;
+                        case 'inactive':
+                          $badgeClass = 'dark';
+                          break;
                       }
                       echo "<td><span class='badge bg-$badgeClass'>$status</span></td>";
+
                       echo "<td>" . number_format($row['baseprice'], 2) . "</td>";
                       echo "<td>" . number_format($row['rateperkm'], 2) . "</td>";
-                      echo "<td>" . htmlspecialchars($row['type']) . "</td>";
-                      echo "<td>" . htmlspecialchars($row['model']) . "</td>";
                       echo "<td>" . htmlspecialchars($row['year']) . "</td>";
+
                       $driverName = $row['driver_name'] ?? 'Unassigned';
                       if ($driverName === 'Unassigned' || empty($driverName)) {
                         echo "<td><span class='badge bg-secondary'>Unassigned</span></td>";
@@ -103,9 +107,7 @@
                       </button>
 
 
-                      <button type="button" class="btn btn-sm btn-danger" title="Delete" onclick="deleteQuestion(\'' . htmlspecialchars($row['vehicleid'], ENT_QUOTES) . '\') ">
-                        <i class="bi bi-trash"></i>
-                      </button>
+
 
                       <button type="button" class="btn btn-sm btn-info" title="View Comments" onclick="viewComments(\'' . htmlspecialchars($row['vehicleid'], ENT_QUOTES) . '\')" data-bs-toggle="modal" data-bs-target="#viewCommentsModal">
                         <i class="bi bi-chat-dots"></i>
@@ -129,7 +131,8 @@
   </section>
 
   <!-- View Comments Modal -->
-  <div class="modal fade" id="viewCommentsModal" tabindex="-1" aria-labelledby="viewCommentsModalLabel" aria-hidden="true">
+  <div class="modal fade" id="viewCommentsModal" tabindex="-1" aria-labelledby="viewCommentsModalLabel"
+    aria-hidden="true">
     <div class="modal-dialog modal-lg">
       <div class="modal-content">
         <div class="modal-header">
@@ -149,7 +152,8 @@
   <!-- Add Truck Modal -->
   <div class="modal fade" id="addTruckModal" tabindex="-1" aria-labelledby="addTruckModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg">
-      <form method="post" onsubmit="return validateForm()" class="needs-validation" novalidate id="add-form" action="controller/truck/create-truck.php">
+      <form method="post" onsubmit="return validateForm()" class="needs-validation" novalidate id="add-form"
+        action="controller/truck/create-truck.php">
 
         <div class="modal-content">
           <div class="modal-header">
@@ -178,6 +182,7 @@
                   <option value="in use">In Use</option>
                   <option value="under maintenance">Under Maintenance</option>
                   <option value="unavailable">Unavailable</option>
+                  <option value="inactive">Inactive</option>
                 </select>
               </div>
               <div class="col-md-6">
@@ -262,9 +267,11 @@
   </div>
 
   <!-- Update Truck Modal -->
-  <div class="modal fade" id="updateTruckModal" tabindex="-1" aria-labelledby="updateTruckModalLabel" aria-hidden="true">
+  <div class="modal fade" id="updateTruckModal" tabindex="-1" aria-labelledby="updateTruckModalLabel"
+    aria-hidden="true">
     <div class="modal-dialog modal-lg">
-      <form method="post" class="needs-validation" novalidate id="update-form" action="controller/truck/update-truck.php">
+      <form method="post" class="needs-validation" novalidate id="update-form"
+        action="controller/truck/update-truck.php">
         <input type="hidden" name="vehicleid" id="update-vehicleid">
         <div class="modal-content">
           <div class="modal-header">
@@ -292,6 +299,7 @@
                   <option value="in use">In Use</option>
                   <option value="under maintenance">Under Maintenance</option>
                   <option value="unavailable">Unavailable</option>
+                  <option value="inactive">Inactive</option>
                 </select>
               </div>
               <div class="col-md-6">
@@ -369,9 +377,11 @@
   </div>
 
   <!-- Update Status Modal -->
-  <div class="modal fade" id="updateStatusModal" tabindex="-1" aria-labelledby="updateStatusModalLabel" aria-hidden="true">
+  <div class="modal fade" id="updateStatusModal" tabindex="-1" aria-labelledby="updateStatusModalLabel"
+    aria-hidden="true">
     <div class="modal-dialog">
-      <form method="post" class="needs-validation" novalidate id="update-status-form" action="controller/truck/update-truck-status.php">
+      <form method="post" class="needs-validation" novalidate id="update-status-form"
+        action="controller/truck/update-truck-status.php">
         <input type="hidden" name="vehicleid" id="status-vehicleid">
         <div class="modal-content">
           <div class="modal-header">
@@ -386,6 +396,7 @@
                 <option value="in use">In Use</option>
                 <option value="under maintenance">Under Maintenance</option>
                 <option value="unavailable">Unavailable</option>
+                <option value="inactive">Inactive</option>
               </select>
             </div>
           </div>
@@ -405,7 +416,7 @@
 
 
 <script>
-  document.querySelector("#add-form").addEventListener("submit", function(e) {
+  document.querySelector("#add-form").addEventListener("submit", function (e) {
     e.preventDefault();
 
     const submitBtn = document.querySelector("#submit-btn");
@@ -414,21 +425,21 @@
     const formData = new FormData(this);
 
     fetch(this.action, {
-        method: this.method,
-        body: formData
-      })
+      method: this.method,
+      body: formData
+    })
       .then((res) => res.json())
       .then((res) => {
         if (res.status === 'success') {
-            Swal.fire({
+          Swal.fire({
             icon: "success",
             title: "Success!",
             text: res.message || "Truck added successfully.",
             timer: 2000,
             showConfirmButton: false
-            }).then(() => {
+          }).then(() => {
             location.reload();
-            });
+          });
 
           // Reset form & close modal
           this.reset();
@@ -457,7 +468,7 @@
 
 
 
-  $('#update-form').on('submit', function(e) {
+  $('#update-form').on('submit', function (e) {
     e.preventDefault();
     updateRequest.send();
   });
@@ -518,7 +529,7 @@
     updateUrl: 'controller/truck/update-truck-status.php',
     redirectUrl: 'vehicle',
     updateData: null,
-    callback: function(error, data) {
+    callback: function (error, data) {
       if (error) {
         console.error("Error updating status:", error);
       } else {
@@ -528,7 +539,7 @@
     promptMessage: 'Are you sure you want to update the status of this vehicle?'
   });
 
-  $('#update-status-form').on('submit', function(e) {
+  $('#update-status-form').on('submit', function (e) {
     e.preventDefault();
     updateStatusRequest.send();
   });
@@ -556,7 +567,7 @@
     updateUrl: 'controller/truck/update-truck.php',
     redirectUrl: 'vehicle',
     updateData: null,
-    callback: function(error, data) {
+    callback: function (error, data) {
 
     },
     promptMessage: 'Are you sure you want to update this user?'

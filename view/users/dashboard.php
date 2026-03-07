@@ -59,7 +59,7 @@ if ($result) {
 }
 
 // Monthly revenue data for the selected year
-$monthlyRevenue = array_fill(1, 12, 0); 
+$monthlyRevenue = array_fill(1, 12, 0);
 
 $result = $conn->prepare("
     SELECT MONTH(paid_at) AS month, SUM(amount_received) AS monthly_revenue
@@ -75,6 +75,25 @@ $result->bind_result($month, $monthly_revenue);
 
 while ($result->fetch()) {
     $monthlyRevenue[$month] = $monthly_revenue;
+}
+$result->close();
+
+// Monthly bookings data for the selected year
+$monthlyBookings = array_fill(1, 12, 0);
+
+$result = $conn->prepare("
+    SELECT MONTH(created_at) AS month, COUNT(*) AS monthly_count
+    FROM bookings
+    WHERE YEAR(created_at) = ?
+    GROUP BY month
+    ORDER BY month
+");
+$result->bind_param("i", $selectedYear);
+$result->execute();
+$result->bind_result($month, $monthly_count);
+
+while ($result->fetch()) {
+    $monthlyBookings[$month] = $monthly_count;
 }
 $result->close();
 
@@ -109,6 +128,7 @@ $monthNames = [
 
 $chartLabels = array_values($monthNames);
 $chartData = array_values($monthlyRevenue);
+$bookingData = array_values($monthlyBookings);
 $maxRevenue = max($chartData) > 0 ? max($chartData) : 10000; // Avoid division by zero
 ?>
 
@@ -329,7 +349,7 @@ $maxRevenue = max($chartData) > 0 ? max($chartData) : 10000; // Avoid division b
                                 <h5 class="card-title text-muted mb-2">Vehicles</h5>
                                 <h3 class="mb-0"><?= number_format($totalVehicles) ?></h3>
                                 <p class="text-success small mb-0 mt-1">
-                                    <i class="bi bi-plus-circle"></i> Fleet size
+                                    <i class="bi bi-plus-circle"></i> Total count
                                 </p>
                             </div>
                             <div class="stat-icon bg-info bg-opacity-10 text-info">
@@ -369,8 +389,10 @@ $maxRevenue = max($chartData) > 0 ? max($chartData) : 10000; // Avoid division b
                         <div class="chart-header">
                             <h5 class="card-title mb-0">Monthly Revenue Overview for <?= $selectedYear ?></h5>
                             <div class="btn-group">
-                                <button class="btn btn-sm btn-outline-primary active">Revenue</button>
-                                <button class="btn btn-sm btn-outline-secondary">Bookings</button>
+                                <button id="toggleRevenueBtn"
+                                    class="btn btn-sm btn-outline-primary active">Revenue</button>
+                                <button id="toggleBookingsBtn"
+                                    class="btn btn-sm btn-outline-secondary">Bookings</button>
                             </div>
                         </div>
                         <div class="chart-container">
@@ -389,44 +411,52 @@ $maxRevenue = max($chartData) > 0 ? max($chartData) : 10000; // Avoid division b
                         <div class="mb-4">
                             <div class="d-flex justify-content-between mb-2">
                                 <span>Available</span>
-                                <span><?= $vehicleStatus['available'] ?> (<?= $totalVehicles > 0 ? round($vehicleStatus['available'] / $totalVehicles * 100) : 0 ?>%)</span>
+                                <span><?= $vehicleStatus['available'] ?>
+                                    (<?= $totalVehicles > 0 ? round($vehicleStatus['available'] / $totalVehicles * 100) : 0 ?>%)</span>
                             </div>
                             <div class="progress">
                                 <div class="progress-bar bg-success" role="progressbar"
-                                    style="width: <?= ($totalVehicles > 0) ? ($vehicleStatus['available'] / $totalVehicles * 100) : 0 ?>%"></div>
+                                    style="width: <?= ($totalVehicles > 0) ? ($vehicleStatus['available'] / $totalVehicles * 100) : 0 ?>%">
+                                </div>
                             </div>
                         </div>
 
                         <div class="mb-4">
                             <div class="d-flex justify-content-between mb-2">
                                 <span>In Use</span>
-                                <span><?= $vehicleStatus['in use'] ?> (<?= $totalVehicles > 0 ? round($vehicleStatus['in use'] / $totalVehicles * 100) : 0 ?>%)</span>
+                                <span><?= $vehicleStatus['in use'] ?>
+                                    (<?= $totalVehicles > 0 ? round($vehicleStatus['in use'] / $totalVehicles * 100) : 0 ?>%)</span>
                             </div>
                             <div class="progress">
                                 <div class="progress-bar bg-primary" role="progressbar"
-                                    style="width: <?= ($totalVehicles > 0) ? ($vehicleStatus['in use'] / $totalVehicles * 100) : 0 ?>%"></div>
+                                    style="width: <?= ($totalVehicles > 0) ? ($vehicleStatus['in use'] / $totalVehicles * 100) : 0 ?>%">
+                                </div>
                             </div>
                         </div>
 
                         <div class="mb-4">
                             <div class="d-flex justify-content-between mb-2">
                                 <span>Maintenance</span>
-                                <span><?= $vehicleStatus['under maintenance'] ?> (<?= $totalVehicles > 0 ? round($vehicleStatus['under maintenance'] / $totalVehicles * 100) : 0 ?>%)</span>
+                                <span><?= $vehicleStatus['under maintenance'] ?>
+                                    (<?= $totalVehicles > 0 ? round($vehicleStatus['under maintenance'] / $totalVehicles * 100) : 0 ?>%)</span>
                             </div>
                             <div class="progress">
                                 <div class="progress-bar bg-warning" role="progressbar"
-                                    style="width: <?= ($totalVehicles > 0) ? ($vehicleStatus['under maintenance'] / $totalVehicles * 100) : 0 ?>%"></div>
+                                    style="width: <?= ($totalVehicles > 0) ? ($vehicleStatus['under maintenance'] / $totalVehicles * 100) : 0 ?>%">
+                                </div>
                             </div>
                         </div>
 
                         <div>
                             <div class="d-flex justify-content-between mb-2">
                                 <span>Unavailable</span>
-                                <span><?= $vehicleStatus['unavailable'] ?> (<?= $totalVehicles > 0 ? round($vehicleStatus['unavailable'] / $totalVehicles * 100) : 0 ?>%)</span>
+                                <span><?= $vehicleStatus['unavailable'] ?>
+                                    (<?= $totalVehicles > 0 ? round($vehicleStatus['unavailable'] / $totalVehicles * 100) : 0 ?>%)</span>
                             </div>
                             <div class="progress">
                                 <div class="progress-bar bg-danger" role="progressbar"
-                                    style="width: <?= ($totalVehicles > 0) ? ($vehicleStatus['unavailable'] / $totalVehicles * 100) : 0 ?>%"></div>
+                                    style="width: <?= ($totalVehicles > 0) ? ($vehicleStatus['unavailable'] / $totalVehicles * 100) : 0 ?>%">
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -489,7 +519,7 @@ $maxRevenue = max($chartData) > 0 ? max($chartData) : 10000; // Avoid division b
                                         // Generate random distance and revenue for demo
                                         $distance = rand(5, 50) . ' km';
                                         $revenue = '₱' . rand(500, 3000);
-                                    ?>
+                                        ?>
                                         <tr class="<?= $booking['status'] == 'in_progress' ? 'table-primary' : '' ?>">
                                             <td>
                                                 <div class="d-flex align-items-center">
@@ -500,7 +530,8 @@ $maxRevenue = max($chartData) > 0 ? max($chartData) : 10000; // Avoid division b
                                                 </div>
                                             </td>
                                             <td><?= $booking['vehicle_name'] ?? 'No Vehicle' ?></td>
-                                            <td><?= date('M d, Y', strtotime($booking['date'])) . ' ' . $booking['time'] ?></td>
+                                            <td><?= date('M d, Y', strtotime($booking['date'])) . ' ' . $booking['time'] ?>
+                                            </td>
                                             <td><?= $distance ?></td>
                                             <td class="fw-bold"><?= $revenue ?></td>
                                             <td>
@@ -524,13 +555,17 @@ $maxRevenue = max($chartData) > 0 ? max($chartData) : 10000; // Avoid division b
 <script>
     // Revenue Chart
     const ctx = document.getElementById('revenueChart').getContext('2d');
+
+    const revenueData = <?= json_encode($chartData) ?>;
+    const bookingData = <?= json_encode($bookingData) ?>;
+
     const revenueChart = new Chart(ctx, {
         type: 'bar',
         data: {
             labels: <?= json_encode($chartLabels) ?>,
             datasets: [{
                 label: 'Monthly Revenue (₱)',
-                data: <?= json_encode($chartData) ?>,
+                data: revenueData,
                 backgroundColor: Array(12).fill().map((_, i) =>
                     i === <?= $selectedMonth - 1 ?> ? '#4361ee' : 'rgba(67, 97, 238, 0.5)'
                 ),
@@ -547,7 +582,7 @@ $maxRevenue = max($chartData) > 0 ? max($chartData) : 10000; // Avoid division b
                 },
                 tooltip: {
                     callbacks: {
-                        label: function(context) {
+                        label: function (context) {
                             return '₱' + context.raw.toLocaleString();
                         }
                     }
@@ -560,7 +595,7 @@ $maxRevenue = max($chartData) > 0 ? max($chartData) : 10000; // Avoid division b
                         drawBorder: false
                     },
                     ticks: {
-                        callback: function(value) {
+                        callback: function (value) {
                             return '₱' + value.toLocaleString();
                         }
                     }
@@ -574,15 +609,53 @@ $maxRevenue = max($chartData) > 0 ? max($chartData) : 10000; // Avoid division b
         }
     });
 
+    document.getElementById('toggleRevenueBtn').addEventListener('click', function () {
+        this.classList.add('btn-outline-primary', 'active');
+        this.classList.remove('btn-outline-secondary');
+
+        const bookingBtn = document.getElementById('toggleBookingsBtn');
+        bookingBtn.classList.add('btn-outline-secondary');
+        bookingBtn.classList.remove('btn-outline-primary', 'active');
+
+        revenueChart.data.datasets[0].data = revenueData;
+        revenueChart.data.datasets[0].label = 'Monthly Revenue (₱)';
+        revenueChart.options.plugins.tooltip.callbacks.label = function (context) {
+            return '₱' + context.raw.toLocaleString();
+        };
+        revenueChart.options.scales.y.ticks.callback = function (value) {
+            return '₱' + value.toLocaleString();
+        };
+        revenueChart.update();
+    });
+
+    document.getElementById('toggleBookingsBtn').addEventListener('click', function () {
+        this.classList.add('btn-outline-primary', 'active');
+        this.classList.remove('btn-outline-secondary');
+
+        const revenueBtn = document.getElementById('toggleRevenueBtn');
+        revenueBtn.classList.add('btn-outline-secondary');
+        revenueBtn.classList.remove('btn-outline-primary', 'active');
+
+        revenueChart.data.datasets[0].data = bookingData;
+        revenueChart.data.datasets[0].label = 'Monthly Bookings';
+        revenueChart.options.plugins.tooltip.callbacks.label = function (context) {
+            return context.raw.toLocaleString();
+        };
+        revenueChart.options.scales.y.ticks.callback = function (value) {
+            return value.toLocaleString();
+        };
+        revenueChart.update();
+    });
+
     // Filter functionality
-    document.getElementById('yearSelector').addEventListener('change', function() {
+    document.getElementById('yearSelector').addEventListener('change', function () {
         const year = this.value;
         const month = <?= $selectedMonth ?>;
         window.location.href = `?year=${year}&month=${month}`;
     });
 
     document.querySelectorAll('.month-item').forEach(item => {
-        item.addEventListener('click', function() {
+        item.addEventListener('click', function () {
             const month = this.getAttribute('data-month');
             const year = <?= $selectedYear ?>;
             window.location.href = `?year=${year}&month=${month}`;

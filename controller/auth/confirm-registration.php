@@ -63,6 +63,11 @@ if (!isset($request_body['full_name'])) {
 
 $full_name = filter_var($request_body['full_name'], FILTER_SANITIZE_STRING);
 
+if (!preg_match('/^[a-zA-Z\s\-\.]+$/', $full_name)) {
+    echo json_encode(['status' => 'error', 'message' => 'Full name can only contain letters, spaces, dashes, and periods.', 'http_code' => 400]);
+    exit;
+}
+
 if (strlen($full_name) < 3 || strlen($full_name) > 50) {
     echo json_encode(['status' => 'error', 'message' => 'Full name must be between 3 and 50 characters', 'http_code' => 400]);
     exit;

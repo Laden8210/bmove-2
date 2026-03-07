@@ -60,6 +60,24 @@ if (!in_array($status, $valid_statuses)) {
     exit;
 }
 
+// Fetch target user's account_type
+$target_stmt = $conn->prepare("SELECT account_type FROM users WHERE uid = ?");
+$target_stmt->bind_param("s", $uid);
+$target_stmt->execute();
+$target_result = $target_stmt->get_result();
+
+if ($target_result->num_rows === 0) {
+    echo json_encode(['status' => 'error', 'message' => 'User not found', 'http_code' => 404]);
+    exit;
+}
+
+$target_user = $target_result->fetch_assoc();
+
+if ($target_user['account_type'] === 'admin' && $status === 'Inactive') {
+    echo json_encode(['status' => 'error', 'message' => 'Admin accounts cannot be set to Inactive', 'http_code' => 400]);
+    exit;
+}
+
 // Don't allow an admin to archive themselves
 if ($uid === $_SESSION['auth']['user_id'] && $status === 'Archived') {
     echo json_encode(['status' => 'error', 'message' => 'You cannot archive your own active session account', 'http_code' => 400]);

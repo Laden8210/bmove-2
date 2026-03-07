@@ -117,31 +117,26 @@ $result = $conn->query($sql);
                 <thead>
                   <tr>
 
-                    <th>Pickup Location</th>
-                    <th>Dropoff Location</th>
                     <th>Date</th>
-                    <th>Time</th>
                     <th>Total Distance</th>
                     <th>Total Price</th>
                     <th>Status</th>
-                    <th>Payment Method</th>
+                    <th data-sortable="false">Payment Method</th>
                     <th>Date Created</th>
-                    <th>Actions</th>
+                    <th data-sortable="false">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   <?php if ($result && $result->num_rows > 0): ?>
                     <?php while ($row = $result->fetch_assoc()): ?>
                       <tr>
-                        <td><?php echo htmlspecialchars($row['pickup_location']); ?></td>
-                        <td><?php echo htmlspecialchars($row['dropoff_location']); ?></td>
                         <td>
                           <?php
                           $date = date('M d, Y', strtotime($row['date']));
-                          echo htmlspecialchars($date);
+                          $time = htmlspecialchars($row['time']);
+                          echo htmlspecialchars($date) . ' ' . $time;
                           ?>
                         </td>
-                        <td><?php echo htmlspecialchars($row['time']); ?></td>
                         <td><?php echo htmlspecialchars($row['total_distance']); ?></td>
                         <td>&#8369;<?php echo number_format($row['total_price'], 2); ?></td>
                         <td>
@@ -174,9 +169,7 @@ $result = $conn->query($sql);
                         </td>
                         <td>
                           <!-- View Map Button -->
-                          <button
-                            class="btn btn-outline-primary btn-sm view-map-btn"
-                            data-bs-toggle="modal"
+                          <button class="btn btn-outline-primary btn-sm view-map-btn" data-bs-toggle="modal"
                             data-bs-target="#mapModal"
                             data-pickup="<?php echo htmlspecialchars($row['pickup_location']); ?>"
                             data-dropoff="<?php echo htmlspecialchars($row['dropoff_location']); ?>"
@@ -199,11 +192,8 @@ $result = $conn->query($sql);
                           </button>
 
                           <!-- Update Status Button -->
-                          <button class="btn btn-sm btn-outline-success update-status-btn"
-                            data-bs-toggle="modal"
-                            data-bs-target="#statusModal"
-                            title="Update Status"
-                            data-id="<?php echo $row['booking_id']; ?>"
+                          <button class="btn btn-sm btn-outline-success update-status-btn" data-bs-toggle="modal"
+                            data-bs-target="#statusModal" title="Update Status" data-id="<?php echo $row['booking_id']; ?>"
                             onclick="document.getElementById('statusBookingId').value = this.dataset.id;">
                             <i class="bi bi-pencil-square"></i>
                           </button>
@@ -235,7 +225,8 @@ $result = $conn->query($sql);
         <h5 class="modal-title">Update Booking Status</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
-      <form method="post" action="controller/booking/update-booking.php" id="update-booking-form" class="needs-validation" novalidate>
+      <form method="post" action="controller/booking/update-booking.php" id="update-booking-form"
+        class="needs-validation" novalidate>
 
         <div class="modal-body">
           <div class="mb-3">
@@ -253,7 +244,8 @@ $result = $conn->query($sql);
             <label for="statusNote" class="form-label">Note (optional)</label>
             <small class="text-muted">Add a note for the status update (optional).</small>
           </div>
-          <textarea class="form-control" id="statusNote" placeholder="Enter a note (optional)" name="remarks"></textarea>
+          <textarea class="form-control" id="statusNote" placeholder="Enter a note (optional)"
+            name="remarks"></textarea>
           <input type="hidden" id="statusBookingId" name="booking_id" value="">
         </div>
         <div class="modal-footer">
@@ -293,11 +285,16 @@ $result = $conn->query($sql);
                   <i class="bi bi-truck-front-fill me-1"></i> Vehicle Details
                 </h6>
                 <ul class="list-unstyled mb-0 ps-0">
-                  <li class="mb-2"><i class="bi bi-tag-fill me-1"></i><strong>Name:</strong> <span id="modalVehicleName"></span></li>
-                  <li class="mb-2"><i class="bi bi-car-front-fill me-1"></i><strong>Plate:</strong> <span id="modalPlateNumber"></span></li>
-                  <li class="mb-2"><i class="bi bi-truck me-1"></i><strong>Type:</strong> <span id="modalVehicleType"></span></li>
-                  <li class="mb-2"><i class="bi bi-cpu-fill me-1"></i><strong>Model:</strong> <span id="modalVehicleModel"></span></li>
-                  <li><i class="bi bi-calendar-event-fill me-1"></i><strong>Year:</strong> <span id="modalVehicleYear"></span></li>
+                  <li class="mb-2"><i class="bi bi-tag-fill me-1"></i><strong>Name:</strong> <span
+                      id="modalVehicleName"></span></li>
+                  <li class="mb-2"><i class="bi bi-car-front-fill me-1"></i><strong>Plate:</strong> <span
+                      id="modalPlateNumber"></span></li>
+                  <li class="mb-2"><i class="bi bi-truck me-1"></i><strong>Type:</strong> <span
+                      id="modalVehicleType"></span></li>
+                  <li class="mb-2"><i class="bi bi-cpu-fill me-1"></i><strong>Model:</strong> <span
+                      id="modalVehicleModel"></span></li>
+                  <li><i class="bi bi-calendar-event-fill me-1"></i><strong>Year:</strong> <span
+                      id="modalVehicleYear"></span></li>
                 </ul>
               </div>
             </div>
@@ -311,12 +308,18 @@ $result = $conn->query($sql);
                   <i class="bi bi-calendar-check-fill me-1"></i> Booking Information
                 </h6>
                 <ul class="list-unstyled mb-0 ps-0">
-                  <li class="mb-2"><i class="bi bi-geo-fill me-1"></i><strong>Pickup:</strong> <span id="modalPickup"></span></li>
-                  <li class="mb-2"><i class="bi bi-geo-alt-fill me-1"></i><strong>Dropoff:</strong> <span id="modalDropoff"></span></li>
-                  <li class="mb-2"><i class="bi bi-calendar-fill me-1"></i><strong>Date:</strong> <span id="modalDate"></span></li>
-                  <li class="mb-2"><i class="bi bi-clock-fill me-1"></i><strong>Time:</strong> <span id="modalTime"></span></li>
-                  <li class="mb-2"><i class="bi bi-rulers me-1"></i><strong>Distance:</strong> <span id="modalDistance"></span> km</li>
-                  <li class="mb-2"><i class="bi bi-currency-dollar me-1"></i><strong>Price:</strong> ₱<span id="modalPrice"></span></li>
+                  <li class="mb-2"><i class="bi bi-geo-fill me-1"></i><strong>Pickup:</strong> <span
+                      id="modalPickup"></span></li>
+                  <li class="mb-2"><i class="bi bi-geo-alt-fill me-1"></i><strong>Dropoff:</strong> <span
+                      id="modalDropoff"></span></li>
+                  <li class="mb-2"><i class="bi bi-calendar-fill me-1"></i><strong>Date:</strong> <span
+                      id="modalDate"></span></li>
+                  <li class="mb-2"><i class="bi bi-clock-fill me-1"></i><strong>Time:</strong> <span
+                      id="modalTime"></span></li>
+                  <li class="mb-2"><i class="bi bi-rulers me-1"></i><strong>Distance:</strong> <span
+                      id="modalDistance"></span> km</li>
+                  <li class="mb-2"><i class="bi bi-currency-dollar me-1"></i><strong>Price:</strong> ₱<span
+                      id="modalPrice"></span></li>
                   <li>
                     <i class="bi bi-info-circle-fill me-1"></i><strong>Status:</strong>
                     <span id="modalStatus" class="badge bg-info"></span>
@@ -397,7 +400,7 @@ $result = $conn->query($sql);
           weight: 6
         }]
       },
-      createMarker: function(i, wp, n) {
+      createMarker: function (i, wp, n) {
         const icon = i === 0 ?
           L.divIcon({
             className: 'start-marker',
@@ -421,7 +424,7 @@ $result = $conn->query($sql);
     });
   }
 
-  document.addEventListener('DOMContentLoaded', function() {
+  document.addEventListener('DOMContentLoaded', function () {
     // Handle view map button clicks
     document.querySelectorAll('.view-map-btn').forEach((btn) => {
       btn.addEventListener('click', () => {
@@ -469,7 +472,7 @@ $result = $conn->query($sql);
     });
 
     // Initialize the map when the modal is shown
-    document.getElementById('mapModal').addEventListener('shown.bs.modal', function() {
+    document.getElementById('mapModal').addEventListener('shown.bs.modal', function () {
       if (map) {
         setTimeout(() => {
           map.invalidateSize();

@@ -26,12 +26,12 @@
 
                     <th>Username</th>
                     <th>Full Name</th>
-                    <th>Contact Number</th>
-                    <th>Email Address</th>
+                    <th data-sortable="false">Contact Number</th>
+                    <th data-sortable="false">Email Address</th>
                     <th>Account Type</th>
                     <th>Status</th>
                     <th data-type="date" data-format="YYYY/DD/MM">Date Added</th>
-                    <th>Action</th>
+                    <th data-sortable="false">Action</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -81,9 +81,15 @@
                                     </button>
                                     <ul class="dropdown-menu dropdown-menu-end shadow">
                                         <li><h6 class="dropdown-header">Set Status</h6></li>
-                                        <li><a class="dropdown-item" href="#" onclick="changeUserStatus(\'' . $row['uid'] . '\', \'Active\')"><i class="bi bi-check-circle text-success me-2"></i>Active</a></li>
-                                        <li><a class="dropdown-item" href="#" onclick="changeUserStatus(\'' . $row['uid'] . '\', \'Inactive\')"><i class="bi bi-pause-circle text-warning me-2"></i>Inactive</a></li>
-                                        <li><hr class="dropdown-divider"></li>
+                                        <li><a class="dropdown-item" href="#" onclick="changeUserStatus(\'' . $row['uid'] . '\', \'Active\')"><i class="bi bi-check-circle text-success me-2"></i>Active</a></li>';
+
+                      if ($row['account_type'] !== 'admin') {
+                        echo '<li><a class="dropdown-item" href="#" onclick="changeUserStatus(\'' . $row['uid'] . '\', \'Inactive\')"><i class="bi bi-pause-circle text-warning me-2"></i>Inactive</a></li>';
+                      } else {
+                        echo '<li><span class="dropdown-item text-muted" style="cursor: not-allowed;"><i class="bi bi-pause-circle text-muted me-2"></i>Inactive (Disabled for Admins)</span></li>';
+                      }
+
+                      echo '<li><hr class="dropdown-divider"></li>
                                         <li><a class="dropdown-item text-danger" href="#" onclick="changeUserStatus(\'' . $row['uid'] . '\', \'Archived\')"><i class="bi bi-archive text-danger me-2"></i>Archive</a></li>
                                     </ul>
                                 </div>

@@ -624,6 +624,8 @@ $selectedVehicle['totalcapacitykg'] = $selectedVehicle['totalcapacitykg'] ?? 0;
                                     <input type="date" id="date" name="date" class="form-control form-control-lg"
                                         min="<?= date('Y-m-d') ?>" max="<?= date('Y-m-d', strtotime('+3 months')) ?>"
                                         required>
+                                    <small class="text-muted d-block mt-1">You can only book up to 3 months in
+                                        advance.</small>
                                     <div class="invalid-feedback">Please select a date within the next 3 months</div>
                                 </div>
                                 <div class="col-md-6">
@@ -837,10 +839,26 @@ $selectedVehicle['totalcapacitykg'] = $selectedVehicle['totalcapacitykg'] ?? 0;
             }
 
             validateForm() {
+                // Check if Privacy Policy is accepted
+                const privacyAgreement = document.getElementById('privacy_agreement');
+                if (privacyAgreement && !privacyAgreement.checked) {
+                    Swal.fire({
+                        title: 'Required',
+                        text: 'You must agree to the Privacy Policy before booking.',
+                        icon: 'warning',
+                        confirmButtonText: 'OK'
+                    });
+                    return false;
+                }
+
                 // Check if pickup location is selected
                 const pickupLocation = document.getElementById('pickup').value;
                 if (!pickupLocation || pickupLocation.trim() === '') {
-                    showNotification('Please enter a pickup location', 'error');
+                    if (typeof showNotification === 'function') {
+                        showNotification('Please enter a pickup location', 'error');
+                    } else {
+                        Swal.fire({ icon: 'error', text: 'Please enter a pickup location' });
+                    }
                     return false;
                 }
 
@@ -995,7 +1013,7 @@ $selectedVehicle['totalcapacitykg'] = $selectedVehicle['totalcapacitykg'] ?? 0;
             function selectSuggestion(index) {
                 if (index >= 0 && index < suggestions.length) {
                     const result = suggestions[index];
-                    
+
                     // Validate bounds before accepting the suggestion
                     const latLng = L.latLng(result.geometry.lat, result.geometry.lng);
                     if (typeof bataanBounds !== 'undefined' && !bataanBounds.contains(latLng)) {

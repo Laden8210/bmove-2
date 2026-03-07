@@ -13,7 +13,11 @@
                 <div class="mb-3">
                     <label for="full_name" class="form-label">Full Name:</label>
                     <input type="text" class="form-control" id="full_name" name="full_name"
-                        placeholder="FirstName MI. Lastname" required>
+                        placeholder="FirstName MI. Lastname" required oninput="validateFullName()">
+                    <div id="fullname-warning" class="form-text text-danger d-none">
+                        <i class="fas fa-exclamation-triangle"></i> Only letters, spaces, dashes (-), and periods (.)
+                        are allowed.
+                    </div>
                 </div>
                 <div class="mb-3">
                     <label for="contact_number" class="form-label">Contact Number:</label>
@@ -37,8 +41,14 @@
                 </div>
                 <div class="mb-3">
                     <label for="password" class="form-label">Password:</label>
-                    <input type="password" class="form-control" id="password" name="password" placeholder="Password"
-                        required oninput="checkPasswordStrength()">
+                    <div class="input-group">
+                        <input type="password" class="form-control" id="password" name="password" placeholder="Password"
+                            required oninput="checkPasswordStrength()">
+                        <button class="btn btn-outline-secondary" type="button"
+                            onclick="togglePasswordVisibility('password', 'toggle-password-icon')">
+                            <i class="fas fa-eye" id="toggle-password-icon"></i>
+                        </button>
+                    </div>
                     <div class="form-text" id="password-requirements">
                         Password must be at least 8 characters and include:
                         <ul class="mb-0 mt-1" style="font-size: 0.85em;">
@@ -53,8 +63,14 @@
                 </div>
                 <div class="mb-3">
                     <label for="confirm_password" class="form-label">Confirm Password:</label>
-                    <input type="password" class="form-control" id="confirm_password" name="confirm_password"
-                        placeholder="Confirm Password" required oninput="checkPasswordMatch()">
+                    <div class="input-group">
+                        <input type="password" class="form-control" id="confirm_password" name="confirm_password"
+                            placeholder="Confirm Password" required oninput="checkPasswordMatch()">
+                        <button class="btn btn-outline-secondary" type="button"
+                            onclick="togglePasswordVisibility('confirm_password', 'toggle-confirm-password-icon')">
+                            <i class="fas fa-eye" id="toggle-confirm-password-icon"></i>
+                        </button>
+                    </div>
                     <div class="form-text" id="password-match"></div>
                 </div>
 
@@ -66,6 +82,36 @@
 
 
 <script>
+    function validateFullName() {
+        var fullNameInput = document.getElementById('full_name');
+        var warning = document.getElementById('fullname-warning');
+        var value = fullNameInput.value;
+
+        // Allow only letters, spaces, dashes, and periods
+        var sanitizedValue = value.replace(/[^a-zA-Z\s\-\.]/g, '');
+
+        if (value !== sanitizedValue) {
+            fullNameInput.value = sanitizedValue;
+            warning.classList.remove('d-none');
+        } else {
+            warning.classList.add('d-none');
+        }
+    }
+
+    function togglePasswordVisibility(targetId, iconId) {
+        var input = document.getElementById(targetId);
+        var icon = document.getElementById(iconId);
+        if (input.type === 'password') {
+            input.type = 'text';
+            icon.classList.remove('fa-eye');
+            icon.classList.add('fa-eye-slash');
+        } else {
+            input.type = 'password';
+            icon.classList.remove('fa-eye-slash');
+            icon.classList.add('fa-eye');
+        }
+    }
+
     function validateContactNumber() {
         var contact = document.getElementById('contact_number').value;
         var warning = document.getElementById('contact-warning');
@@ -145,6 +191,12 @@
     }
 
     function validateForm() {
+        var fullName = document.getElementById('full_name').value;
+        if (!/^[a-zA-Z\s\-\.]+$/.test(fullName)) {
+            Swal.fire('Invalid Full Name', 'Full name can only contain letters, spaces, dashes, and periods.', 'warning');
+            return false;
+        }
+
         var contact = document.getElementById('contact_number').value;
         if (!/^09\d{9}$/.test(contact)) {
             Swal.fire('Invalid Contact Number', 'Contact number must start with "09" followed by 9 digits.', 'warning');
