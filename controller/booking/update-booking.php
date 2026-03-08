@@ -4,7 +4,7 @@ require_once '../../config/config.php';
 require_once '../../function/UIDGenerator.php';
 
 ini_set('session.cookie_httponly', 1);
-ini_set('session.cookie_secure', $_SERVER['HTTP_HOST'] !== 'localhost'); 
+ini_set('session.cookie_secure', $_SERVER['HTTP_HOST'] !== 'localhost');
 ini_set('session.use_strict_mode', 1);
 
 session_start();
@@ -79,15 +79,8 @@ if ($status === 'cancelled' || $status === 'completed') {
 }
 
 
-if ($status === 'cancelled' && !isset($request_body['remarks'])) {
-    echo json_encode(['status' => 'error', 'message' => 'Missing remarks field for cancelled status', 'http_code' => 400]);
-    exit;
-}
-
-
-
 if ($status === 'cancelled') {
-    $remarks = $request_body['remarks'];
+    $remarks = isset($request_body['remarks']) ? $request_body['remarks'] : null;
     $stmt = $conn->prepare("UPDATE bookings SET status = ?, remarks = ? WHERE booking_id = ?");
     $stmt->bind_param("sss", $status, $remarks, $booking_id);
 } else {
@@ -101,4 +94,4 @@ if ($stmt->execute()) {
     echo json_encode(['status' => 'error', 'message' => 'Failed to update booking', 'http_code' => 500]);
 }
 
-$stmt->close();     
+$stmt->close();

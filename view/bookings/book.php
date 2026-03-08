@@ -657,7 +657,6 @@ $selectedVehicle['totalcapacitykg'] = $selectedVehicle['totalcapacitykg'] ?? 0;
                                         <select id="weight_unit" class="form-select form-select-lg"
                                             style="max-width: 110px;">
                                             <option value="kg" selected>kg</option>
-                                            <option value="tons">tons</option>
                                             <option value="lots">lots</option>
                                         </select>
                                     </div>

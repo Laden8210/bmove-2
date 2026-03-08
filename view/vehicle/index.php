@@ -33,7 +33,7 @@
                     <th data-sortable="false">Plate Number</th>
                     <th data-sortable="false">Image</th>
                     <th>Total Capacity (kg)</th>
-                    <th data-sortable="false">Status</th>
+                    <th>Status</th>
                     <th>Base Price</th>
                     <th>Rate per km</th>
                     <th>Year</th>

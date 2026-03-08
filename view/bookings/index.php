@@ -117,7 +117,8 @@ $result = $conn->query($sql);
                 <thead>
                   <tr>
 
-                    <th>Date</th>
+                    <th>Booking Date</th>
+                    <th>Customer Name</th>
                     <th>Total Distance</th>
                     <th>Total Price</th>
                     <th>Status</th>
@@ -137,6 +138,7 @@ $result = $conn->query($sql);
                           echo htmlspecialchars($date) . ' ' . $time;
                           ?>
                         </td>
+                        <td><?php echo htmlspecialchars($row['customer_name'] ?? 'N/A'); ?></td>
                         <td><?php echo htmlspecialchars($row['total_distance']); ?></td>
                         <td>&#8369;<?php echo number_format($row['total_price'], 2); ?></td>
                         <td>

@@ -83,30 +83,28 @@ try {
         }
     }
 
-    $sql = "SELECT * FROM users WHERE uid = ?";
+    $full_name = '';
+    $role = '';
 
-    $stmt = $conn->prepare($sql);
-    $stmt->bind_param("s", $_SESSION['auth']['user_id']);
-    $stmt->execute();
+    if (isset($_SESSION['auth']['user_id'])) {
+        $sql = "SELECT * FROM users WHERE uid = ?";
+        $stmt = $conn->prepare($sql);
+        $stmt->bind_param("s", $_SESSION['auth']['user_id']);
+        $stmt->execute();
 
-    $result = $stmt->get_result();
+        $result = $stmt->get_result();
 
-    if ($result->num_rows > 0) {
-        $user = $result->fetch_assoc();
-        $full_name = $user['full_name'];
-
-        $role = $user['account_type'];
+        if ($result->num_rows > 0) {
+            $user = $result->fetch_assoc();
+            $full_name = $user['full_name'];
+            $role = $user['account_type'];
+        }
     }
-
-
-
 
     if ($routes[$request]['auth_required'] && !isset($_SESSION['auth'])) {
         header('Location: login');
         exit;
     }
-
-    echo $_SESSION['auth']['username'] ?? '';
 
 
 

@@ -52,7 +52,7 @@ if (empty($status)) {
     exit;
 }
 
-$valid_statuses = ['available', 'in use', 'under maintenance', 'unavailable'];
+$valid_statuses = ['available', 'in use', 'under maintenance', 'unavailable', 'inactive'];
 if (!in_array($status, $valid_statuses)) {
     echo json_encode(['status' => 'error', 'message' => 'Invalid status value', 'http_code' => 400]);
     exit;
