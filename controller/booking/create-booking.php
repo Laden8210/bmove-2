@@ -420,20 +420,20 @@ if ($stmt->execute()) {
     if ($stmt->execute()) {
         // Payment record created successfully
         $stmt->close();
-        
+
         // If PayMongo payment method, create checkout session
         if ($payment_method === 'paymongo') {
             require_once '../../function/PayMongoService.php';
-            
+
             try {
                 $paymongo = new PayMongoService();
-                
+
                 // Get user details
                 $user_stmt = $conn->prepare("SELECT full_name, email_address, contact_number FROM users WHERE uid = ?");
                 $user_stmt->bind_param("s", $user_id);
                 $user_stmt->execute();
                 $user = $user_stmt->get_result()->fetch_assoc();
-                
+
                 // Prepare booking data
                 $bookingData = [
                     'booking_id' => $booking_id,
@@ -443,24 +443,30 @@ if ($stmt->execute()) {
                     'date' => $date,
                     'time' => $time
                 ];
-                
+
                 // Prepare user data
+                $phone = preg_replace('/[^0-9]/', '', $user['contact_number']);
+                if (strpos($phone, '63') === 0) {
+                    $phone = substr($phone, 2);
+                }
+                $phone = ltrim($phone, '0');
+
                 $userData = [
                     'full_name' => $user['full_name'],
                     'email_address' => $user['email_address'],
-                    'contact_number' => $user['contact_number']
+                    'contact_number' => $phone
                 ];
-                
+
                 // Create concise description (max 200 chars to leave room for truncation)
                 $description = "Booking: {$vehicle['name']} | {$pickup_location} to {$dropoff_location} | {$date} {$time}";
-                
+
                 // Create checkout session
                 $response = $paymongo->createCheckoutSession($bookingData, $userData, $total_price, $description);
-                
+
                 if (isset($response['data']['id'])) {
                     $checkoutSessionId = $response['data']['id'];
                     $checkoutUrl = $response['data']['attributes']['checkout_url'];
-                    
+
                     // Update payment record with PayMongo details
                     $update_stmt = $conn->prepare("
                         UPDATE payments 
@@ -469,7 +475,7 @@ if ($stmt->execute()) {
                     ");
                     $update_stmt->bind_param("sss", $checkoutSessionId, $checkoutUrl, $booking_id);
                     $update_stmt->execute();
-                    
+
                     echo json_encode([
                         'status' => 'success',
                         'message' => 'Booking created successfully. Redirecting to payment...',
