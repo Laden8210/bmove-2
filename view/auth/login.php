@@ -104,9 +104,9 @@
             if (data.status === 'success') {
                 window.location.href = 'dashboard';
             } else if (data.status === 'otp_required') {
-                // Store masked phone for display on OTP page
-                if (data.masked_phone) {
-                    sessionStorage.setItem('otp_masked_phone', data.masked_phone);
+                // Store masked email for display on OTP page
+                if (data.masked_contact) {
+                    sessionStorage.setItem('otp_masked_contact', data.masked_contact);
                 }
                 window.location.href = 'verify-otp';
             } else {

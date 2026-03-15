@@ -14,7 +14,8 @@
                     <p class="text-muted small mb-1">
                         A 6-digit verification code has been sent to
                     </p>
-                    <p class="fw-bold mb-4" id="maskedPhone"></p>
+                    <p class="fw-bold mb-4" id="maskedContact"><i class="fas fa-envelope me-1"></i><span
+                            id="maskedEmail"></span></p>
 
                     <div id="otpAlert" class="alert d-none" role="alert"></div>
 
@@ -109,11 +110,11 @@
         const resendBtn = document.getElementById('resendBtn');
         const resendTimerEl = document.getElementById('resendTimer');
         const otpAlert = document.getElementById('otpAlert');
-        const maskedPhoneEl = document.getElementById('maskedPhone');
+        const maskedEmailEl = document.getElementById('maskedEmail');
 
-        // Load masked phone from session storage (set by login page)
-        const maskedPhone = sessionStorage.getItem('otp_masked_phone') || '****';
-        maskedPhoneEl.textContent = maskedPhone;
+        // Load masked email from session storage (set by login page)
+        const maskedContact = sessionStorage.getItem('otp_masked_contact') || '****@****.com';
+        maskedEmailEl.textContent = maskedContact;
 
         // --- OTP Input Logic ---
         digits.forEach((input, idx) => {
@@ -196,7 +197,7 @@
 
                 if (data.status === 'success') {
                     showAlert('Verification successful! Redirecting...', 'success');
-                    sessionStorage.removeItem('otp_masked_phone');
+                    sessionStorage.removeItem('otp_masked_contact');
                     setTimeout(() => {
                         window.location.href = 'dashboard';
                     }, 800);
@@ -256,9 +257,9 @@
                 const data = await response.json();
 
                 if (data.status === 'success') {
-                    showAlert('A new code has been sent to your phone.', 'info');
-                    if (data.masked_phone) {
-                        maskedPhoneEl.textContent = data.masked_phone;
+                    showAlert('A new code has been sent to your email.', 'info');
+                    if (data.masked_contact) {
+                        maskedEmailEl.textContent = data.masked_contact;
                     }
                     // Clear inputs
                     digits.forEach(d => d.value = '');

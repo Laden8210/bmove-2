@@ -1,8 +1,9 @@
 <?php
 
 require_once '../../config/config.php';
+require_once '../../vendor/autoload.php';
 require_once '../../function/OTPGenerator.php';
-require_once '../../function/SMSService.php';
+require_once '../../function/Mailer.php';
 
 ini_set('session.cookie_httponly', 1);
 ini_set('session.cookie_secure', $_SERVER['HTTP_HOST'] !== 'localhost');
@@ -37,28 +38,32 @@ if ($otpGenerator->getOtpRequests() >= 5) {
 // Generate new OTP
 $otp = $otpGenerator->generateOTP();
 
-$contactNumber = $_SESSION['pending_otp']['contact_number'] ?? '';
+$userEmail = $_SESSION['pending_otp']['email'] ?? '';
 
-if (!empty($contactNumber)) {
-    $smsService = new SMSService();
-    $smsResult = $smsService->sendOTP($contactNumber, $otp);
+if (!empty($userEmail)) {
+    $mailer = new Mailer();
+    $mailResult = $mailer->sendOtp($userEmail, $otp);
 
-    if (!$smsResult['success']) {
-        error_log('SMS resend failed: ' . ($smsResult['error'] ?? 'Unknown error'));
+    if (!$mailResult['success']) {
+        error_log('OTP email resend failed: ' . ($mailResult['error'] ?? 'Unknown error'));
         echo json_encode(['status' => 'error', 'message' => 'Failed to resend OTP. Please try again.', 'http_code' => 500]);
         exit;
     }
 }
 
-$maskedPhone = '';
-if (!empty($contactNumber)) {
-    $maskedPhone = str_repeat('*', max(0, strlen($contactNumber) - 4)) . substr($contactNumber, -4);
+$maskedEmail = '';
+if (!empty($userEmail)) {
+    $parts = explode('@', $userEmail);
+    $name = $parts[0];
+    $domain = $parts[1] ?? '';
+    $maskedName = substr($name, 0, 2) . str_repeat('*', max(0, strlen($name) - 2));
+    $maskedEmail = $maskedName . '@' . $domain;
 }
 
 echo json_encode([
     'status' => 'success',
-    'message' => 'A new OTP has been sent to your phone.',
-    'masked_phone' => $maskedPhone,
+    'message' => 'A new OTP has been sent to your email.',
+    'masked_contact' => $maskedEmail,
     'http_code' => 200
 ]);
 

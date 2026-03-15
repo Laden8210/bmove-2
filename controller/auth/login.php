@@ -1,8 +1,9 @@
 <?php
 
 require_once '../../config/config.php';
+require_once '../../vendor/autoload.php';
 require_once '../../function/OTPGenerator.php';
-require_once '../../function/SMSService.php';
+require_once '../../function/Mailer.php';
 
 // Set session configuration BEFORE starting session
 ini_set('session.cookie_httponly', 1);
@@ -99,23 +100,27 @@ try {
     $otpGenerator = new OTPGenerator();
     $otp = $otpGenerator->generateOTP();
 
-    $maskedPhone = '';
-    if (!empty($formattedPhone)) {
-        $maskedPhone = str_repeat('*', max(0, strlen($formattedPhone) - 4)) . substr($formattedPhone, -4);
+    $userEmail = $user['email_address'] ?? '';
+    $maskedEmail = '';
+    if (!empty($userEmail)) {
+        $parts = explode('@', $userEmail);
+        $name = $parts[0];
+        $domain = $parts[1] ?? '';
+        $maskedName = substr($name, 0, 2) . str_repeat('*', max(0, strlen($name) - 2));
+        $maskedEmail = $maskedName . '@' . $domain;
 
-        $smsService = new SMSService();
-        $smsResult = $smsService->sendOTP($formattedPhone, $otp);
+        $mailer = new Mailer();
+        $mailResult = $mailer->sendOtp($userEmail, $otp);
 
-        if (!$smsResult['success']) {
-            // Log the error but still allow OTP flow (OTP is in session)
-            error_log('SMS send failed: ' . ($smsResult['error'] ?? 'Unknown error'));
+        if (!$mailResult['success']) {
+            error_log('OTP email send failed: ' . ($mailResult['error'] ?? 'Unknown error'));
         }
     }
 
     echo json_encode([
         'status' => 'otp_required',
-        'message' => 'OTP sent to your registered phone number.',
-        'masked_phone' => $maskedPhone,
+        'message' => 'OTP sent to your registered email address.',
+        'masked_contact' => $maskedEmail,
         'http_code' => 200
     ]);
 
