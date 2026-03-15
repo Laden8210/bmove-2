@@ -49,6 +49,9 @@ try {
 
         // Privacy Policy
         'privacy-policy' => ['file' => 'view/home/privacy-policy.php', 'title' => 'Privacy Policy', 'auth_required' => false, 'layout' => null],
+
+        // OTP Verification Route
+        'verify-otp' => ['file' => 'view/auth/verify-otp.php', 'title' => 'Verify OTP', 'auth_required' => false, 'layout' => 'view/layouts/app.php'],
     ];
 
 
@@ -102,7 +105,22 @@ try {
     }
 
     if ($routes[$request]['auth_required'] && !isset($_SESSION['auth'])) {
-        header('Location: login');
+        // If user has a pending OTP, redirect to OTP verification instead of login
+        if (isset($_SESSION['pending_otp'])) {
+            header('Location: verify-otp');
+        } else {
+            header('Location: login');
+        }
+        exit;
+    }
+
+    // OTP guard: if user is on verify-otp page but has no pending OTP, send to login
+    if ($request === 'verify-otp' && !isset($_SESSION['pending_otp'])) {
+        if (isset($_SESSION['auth'])) {
+            header('Location: dashboard');
+        } else {
+            header('Location: login');
+        }
         exit;
     }
 

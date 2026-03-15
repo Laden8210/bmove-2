@@ -103,6 +103,12 @@
 
             if (data.status === 'success') {
                 window.location.href = 'dashboard';
+            } else if (data.status === 'otp_required') {
+                // Store masked phone for display on OTP page
+                if (data.masked_phone) {
+                    sessionStorage.setItem('otp_masked_phone', data.masked_phone);
+                }
+                window.location.href = 'verify-otp';
             } else {
                 showError(data.message || 'Login failed. Please try again.');
             }

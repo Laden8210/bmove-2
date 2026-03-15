@@ -1,6 +1,8 @@
 <?php
 
 require_once '../../config/config.php';
+require_once '../../function/OTPGenerator.php';
+require_once '../../function/SMSService.php';
 
 // Set session configuration BEFORE starting session
 ini_set('session.cookie_httponly', 1);
@@ -36,8 +38,7 @@ $password = $request_body['password'];
 
 try {
 
-
-    $stmt = $conn->prepare("SELECT uid, email_address, password, account_type, email_verified FROM users WHERE email_address = ? or username = ?");
+    $stmt = $conn->prepare("SELECT uid, email_address, password, account_type, email_verified, contact_number FROM users WHERE email_address = ? or username = ?");
     if (!$stmt) {
         throw new Exception('Database error: ' . $conn->error);
     }
@@ -49,7 +50,6 @@ try {
     if ($result->num_rows === 0) {
         echo json_encode(['status' => 'error', 'message' => 'Invalid email or password', 'http_code' => 401]);
         exit;
-
     }
 
     $user = $result->fetch_assoc();
@@ -64,24 +64,58 @@ try {
     //     echo json_encode(['status' => 'error', 'message' => 'Incorrect Password', 'http_code' => 401]);
     //     exit;
     // }
+
     session_regenerate_id(true);
 
+    // --- 2FA: Partial auth — store pending state and send OTP via SMS ---
+    $contactNumber = $user['contact_number'] ?? '';
 
-    $_SESSION['auth'] = [
+    // Format phone number for SMS (ensure +63 prefix for PH numbers)
+    $formattedPhone = $contactNumber;
+    if (!empty($contactNumber)) {
+        // Remove spaces, dashes, parentheses
+        $cleanPhone = preg_replace('/[\s\-\(\)]/', '', $contactNumber);
+        // If starts with 0, replace with +63
+        if (substr($cleanPhone, 0, 1) === '0') {
+            $formattedPhone = '+63' . substr($cleanPhone, 1);
+        } elseif (substr($cleanPhone, 0, 3) !== '+63') {
+            $formattedPhone = '+63' . $cleanPhone;
+        } else {
+            $formattedPhone = $cleanPhone;
+        }
+    }
+
+    // Store pending OTP session (NOT full auth yet)
+    $_SESSION['pending_otp'] = [
         'user_id' => $user['uid'],
         'role' => $user['account_type'],
+        'email' => $user['email_address'],
+        'contact_number' => $formattedPhone,
         'ip_address' => $_SERVER['REMOTE_ADDR'],
         'user_agent' => $_SERVER['HTTP_USER_AGENT']
     ];
 
+    // Generate and send OTP
+    $otpGenerator = new OTPGenerator();
+    $otp = $otpGenerator->generateOTP();
+
+    $maskedPhone = '';
+    if (!empty($formattedPhone)) {
+        $maskedPhone = str_repeat('*', max(0, strlen($formattedPhone) - 4)) . substr($formattedPhone, -4);
+
+        $smsService = new SMSService();
+        $smsResult = $smsService->sendOTP($formattedPhone, $otp);
+
+        if (!$smsResult['success']) {
+            // Log the error but still allow OTP flow (OTP is in session)
+            error_log('SMS send failed: ' . ($smsResult['error'] ?? 'Unknown error'));
+        }
+    }
+
     echo json_encode([
-        'status' => 'success',
-        'message' => 'Login successful',
-        'user' => [
-            'uid' => $user['uid'],
-            'email' => $user['email_address'],
-            'role' => $user['account_type']
-        ],
+        'status' => 'otp_required',
+        'message' => 'OTP sent to your registered phone number.',
+        'masked_phone' => $maskedPhone,
         'http_code' => 200
     ]);
 
