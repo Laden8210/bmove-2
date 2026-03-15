@@ -68,59 +68,21 @@ try {
 
     session_regenerate_id(true);
 
-    // --- 2FA: Partial auth — store pending state and send OTP via SMS ---
-    $contactNumber = $user['contact_number'] ?? '';
-
-    // Format phone number for SMS (ensure +63 prefix for PH numbers)
-    $formattedPhone = $contactNumber;
-    if (!empty($contactNumber)) {
-        // Remove spaces, dashes, parentheses
-        $cleanPhone = preg_replace('/[\s\-\(\)]/', '', $contactNumber);
-        // If starts with 0, replace with +63
-        if (substr($cleanPhone, 0, 1) === '0') {
-            $formattedPhone = '+63' . substr($cleanPhone, 1);
-        } elseif (substr($cleanPhone, 0, 3) !== '+63') {
-            $formattedPhone = '+63' . $cleanPhone;
-        } else {
-            $formattedPhone = $cleanPhone;
-        }
-    }
-
-    // Store pending OTP session (NOT full auth yet)
-    $_SESSION['pending_otp'] = [
+    $_SESSION['auth'] = [
         'user_id' => $user['uid'],
         'role' => $user['account_type'],
-        'email' => $user['email_address'],
-        'contact_number' => $formattedPhone,
         'ip_address' => $_SERVER['REMOTE_ADDR'],
         'user_agent' => $_SERVER['HTTP_USER_AGENT']
     ];
 
-    // Generate and send OTP
-    $otpGenerator = new OTPGenerator();
-    $otp = $otpGenerator->generateOTP();
-
-    $userEmail = $user['email_address'] ?? '';
-    $maskedEmail = '';
-    if (!empty($userEmail)) {
-        $parts = explode('@', $userEmail);
-        $name = $parts[0];
-        $domain = $parts[1] ?? '';
-        $maskedName = substr($name, 0, 2) . str_repeat('*', max(0, strlen($name) - 2));
-        $maskedEmail = $maskedName . '@' . $domain;
-
-        $mailer = new Mailer();
-        $mailResult = $mailer->sendOtp($userEmail, $otp);
-
-        if (!$mailResult['success']) {
-            error_log('OTP email send failed: ' . ($mailResult['error'] ?? 'Unknown error'));
-        }
-    }
-
     echo json_encode([
-        'status' => 'otp_required',
-        'message' => 'OTP sent to your registered email address.',
-        'masked_contact' => $maskedEmail,
+        'status' => 'success',
+        'message' => 'Login successful',
+        'user' => [
+            'uid' => $user['uid'],
+            'email' => $user['email_address'],
+            'role' => $user['account_type']
+        ],
         'http_code' => 200
     ]);
 
