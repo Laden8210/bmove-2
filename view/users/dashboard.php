@@ -29,7 +29,7 @@ if ($result && $row = $result->fetch_assoc()) {
 }
 
 // Total Vehicles
-$result = $conn->query("SELECT COUNT(*) AS total_vehicles FROM vehicles");
+$result = $conn->query("SELECT COUNT(*) AS total_vehicles FROM vehicles WHERE status != 'Inactive'");
 if ($result && $row = $result->fetch_assoc()) {
     $totalVehicles = $row['total_vehicles'] ?? 0;
 }
@@ -58,42 +58,50 @@ if ($result) {
     }
 }
 
-// Monthly revenue data for the selected year
-$monthlyRevenue = array_fill(1, 12, 0);
+// Weekly revenue data for the selected year
+$weeklyRevenue = array_fill(1, 52, 0);
 
 $result = $conn->prepare("
-    SELECT MONTH(paid_at) AS month, SUM(amount_received) AS monthly_revenue
+    SELECT WEEK(paid_at, 1) AS week, SUM(amount_received) AS weekly_revenue
     FROM payments
     WHERE payment_status = 'paid'
     AND YEAR(paid_at) = ?
-    GROUP BY month
-    ORDER BY month
+    GROUP BY week
+    ORDER BY week
 ");
 $result->bind_param("i", $selectedYear);
 $result->execute();
-$result->bind_result($month, $monthly_revenue);
+$result->bind_result($week, $weekly_revenue);
 
 while ($result->fetch()) {
-    $monthlyRevenue[$month] = $monthly_revenue;
+    if ($week == 0)
+        $week = 1;
+    if ($week > 52)
+        continue;
+    $weeklyRevenue[$week] = $weekly_revenue;
 }
 $result->close();
 
-// Monthly bookings data for the selected year
-$monthlyBookings = array_fill(1, 12, 0);
+// Weekly bookings data for the selected year
+$weeklyBookings = array_fill(1, 52, 0);
 
 $result = $conn->prepare("
-    SELECT MONTH(created_at) AS month, COUNT(*) AS monthly_count
+    SELECT WEEK(created_at, 1) AS week, COUNT(*) AS weekly_count
     FROM bookings
     WHERE YEAR(created_at) = ?
-    GROUP BY month
-    ORDER BY month
+    GROUP BY week
+    ORDER BY week
 ");
 $result->bind_param("i", $selectedYear);
 $result->execute();
-$result->bind_result($month, $monthly_count);
+$result->bind_result($week, $weekly_count);
 
 while ($result->fetch()) {
-    $monthlyBookings[$month] = $monthly_count;
+    if ($week == 0)
+        $week = 1;
+    if ($week > 52)
+        continue;
+    $weeklyBookings[$week] = $weekly_count;
 }
 $result->close();
 
@@ -110,25 +118,14 @@ if ($result) {
 $conn->close();
 
 
-$monthNames = [
-    1 => 'January',
-    2 => 'February',
-    3 => 'March',
-    4 => 'April',
-    5 => 'May',
-    6 => 'June',
-    7 => 'July',
-    8 => 'August',
-    9 => 'September',
-    10 => 'October',
-    11 => 'November',
-    12 => 'December'
-];
+$weekNames = [];
+for ($i = 1; $i <= 52; $i++) {
+    $weekNames[$i] = "W$i";
+}
 
-
-$chartLabels = array_values($monthNames);
-$chartData = array_values($monthlyRevenue);
-$bookingData = array_values($monthlyBookings);
+$chartLabels = array_values($weekNames);
+$chartData = array_values($weeklyRevenue);
+$bookingData = array_values($weeklyBookings);
 $maxRevenue = max($chartData) > 0 ? max($chartData) : 10000; // Avoid division by zero
 ?>
 
@@ -311,7 +308,7 @@ $maxRevenue = max($chartData) > 0 ? max($chartData) : 10000; // Avoid division b
                                 <h5 class="card-title text-muted mb-2">Bookings</h5>
                                 <h3 class="mb-0"><?= number_format($bookings) ?></h3>
                                 <p class="text-success small mb-0 mt-1">
-                                    <i class="bi bi-arrow-up"></i> Monthly
+                                    <i class="bi bi-arrow-up"></i> Weekly
                                 </p>
                             </div>
                             <div class="stat-icon bg-success bg-opacity-10 text-success">
@@ -387,7 +384,7 @@ $maxRevenue = max($chartData) > 0 ? max($chartData) : 10000; // Avoid division b
                 <div class="card">
                     <div class="card-body">
                         <div class="chart-header">
-                            <h5 class="card-title mb-0">Monthly Revenue Overview for <?= $selectedYear ?></h5>
+                            <h5 class="card-title mb-0">Weekly Revenue Overview for <?= $selectedYear ?></h5>
                             <div class="btn-group">
                                 <button id="toggleRevenueBtn"
                                     class="btn btn-sm btn-outline-primary active">Revenue</button>
@@ -564,11 +561,9 @@ $maxRevenue = max($chartData) > 0 ? max($chartData) : 10000; // Avoid division b
         data: {
             labels: <?= json_encode($chartLabels) ?>,
             datasets: [{
-                label: 'Monthly Revenue (₱)',
+                label: 'Weekly Revenue (₱)',
                 data: revenueData,
-                backgroundColor: Array(12).fill().map((_, i) =>
-                    i === <?= $selectedMonth - 1 ?> ? '#4361ee' : 'rgba(67, 97, 238, 0.5)'
-                ),
+                backgroundColor: 'rgba(67, 97, 238, 0.5)',
                 borderColor: '#4361ee',
                 borderWidth: 1
             }]
@@ -618,7 +613,7 @@ $maxRevenue = max($chartData) > 0 ? max($chartData) : 10000; // Avoid division b
         bookingBtn.classList.remove('btn-outline-primary', 'active');
 
         revenueChart.data.datasets[0].data = revenueData;
-        revenueChart.data.datasets[0].label = 'Monthly Revenue (₱)';
+        revenueChart.data.datasets[0].label = 'Weekly Revenue (₱)';
         revenueChart.options.plugins.tooltip.callbacks.label = function (context) {
             return '₱' + context.raw.toLocaleString();
         };
@@ -637,7 +632,7 @@ $maxRevenue = max($chartData) > 0 ? max($chartData) : 10000; // Avoid division b
         revenueBtn.classList.remove('btn-outline-primary', 'active');
 
         revenueChart.data.datasets[0].data = bookingData;
-        revenueChart.data.datasets[0].label = 'Monthly Bookings';
+        revenueChart.data.datasets[0].label = 'Weekly Bookings';
         revenueChart.options.plugins.tooltip.callbacks.label = function (context) {
             return context.raw.toLocaleString();
         };

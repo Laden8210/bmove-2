@@ -1,11 +1,21 @@
+<style>
+  .header .logo {
+    margin-left: 0 !important;
+    padding-left: 0 !important;
+  }
+
+  .header .d-flex.align-items-center.justify-content-between {
+    padding-left: 10px !important;
+  }
+</style>
 <header id="header" class="header fixed-top d-flex align-items-center">
 
   <div class="d-flex align-items-center justify-content-between">
     <a href="index.html" class="logo d-flex align-items-center">
       <img src="public/images/logo.jpg" alt="Logo">
-      <span class="d-none d-lg-block">B-Move Express</span>
+      <span class="d-none d-lg-block ms-1">B-Move Express</span>
     </a>
-    <i class="bi bi-list toggle-sidebar-btn"></i>
+    <i class="bi bi-list toggle-sidebar-btn ms-2"></i>
   </div><!-- End Logo -->
 
   <nav class="header-nav ms-auto">

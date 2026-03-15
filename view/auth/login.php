@@ -37,8 +37,14 @@
                         </div>
                         <div class="mb-3">
                             <label for="password" class="form-label">Password:</label>
-                            <input type="password" name="password" id="password" class="form-control"
-                                placeholder="Password" required>
+                            <div class="input-group">
+                                <input type="password" name="password" id="password" class="form-control"
+                                    placeholder="Password" required>
+                                <button class="btn btn-outline-secondary" type="button"
+                                    onclick="togglePasswordVisibility('password', 'toggle-password-icon')">
+                                    <i class="fas fa-eye" id="toggle-password-icon"></i>
+                                </button>
+                            </div>
                         </div>
                         <div class="d-grid">
                             <input type="submit" value="Submit" class="btn btn-primary">
@@ -61,6 +67,20 @@
 </div>
 
 <script>
+    function togglePasswordVisibility(targetId, iconId) {
+        var input = document.getElementById(targetId);
+        var icon = document.getElementById(iconId);
+        if (input.type === 'password') {
+            input.type = 'text';
+            icon.classList.remove('fa-eye');
+            icon.classList.add('fa-eye-slash');
+        } else {
+            input.type = 'password';
+            icon.classList.remove('fa-eye-slash');
+            icon.classList.add('fa-eye');
+        }
+    }
+
     document.getElementById('loginForm').addEventListener('submit', async (e) => {
         e.preventDefault();
 

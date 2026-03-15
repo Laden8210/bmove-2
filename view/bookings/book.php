@@ -921,8 +921,8 @@ $selectedVehicle['totalcapacitykg'] = $selectedVehicle['totalcapacitykg'] ?? 0;
                         confirmButtonColor: "#28a745"
                     });
 
-                    // Redirect to dashboard
-                    window.location.href = '../customer/dashboard.php';
+                    console.log('Redirecting to dashboard...');
+                    window.location.href = 'customer-dashboard';
                 }
             }
 
@@ -1673,15 +1673,35 @@ $selectedVehicle['totalcapacitykg'] = $selectedVehicle['totalcapacitykg'] ?? 0;
                 const currentWeight = parseInt(weightInput.value);
                 weightInput.setCustomValidity('');
 
+                let warningEl = document.getElementById('weight-warning');
+                if (!warningEl) {
+                    warningEl = document.createElement('div');
+                    warningEl.id = 'weight-warning';
+                    warningEl.className = 'text-danger mt-1 small fw-bold';
+                    weightInput.parentNode.appendChild(warningEl);
+                }
+
+                // Reference to Next button in multi-step form (step 1 -> step 2)
+                const nextBtn = document.querySelector('button[onclick="nextStep(2)"], .btn-next') || document.querySelector('button[type="button"].btn-primary');
+                const submitBtn = document.querySelector('button[type="submit"]');
+
                 if (isNaN(currentWeight) || currentWeight <= 0) {
                     weightInput.setCustomValidity('Please enter a valid weight.');
+                    warningEl.textContent = '';
                     return false;
                 }
 
                 if (currentWeight > vehicleMaxCapacity) {
                     weightInput.setCustomValidity(`Weight exceeds vehicle capacity of ${vehicleMaxCapacity}kg.`);
+                    warningEl.textContent = 'Within capacity only';
+                    if (nextBtn) nextBtn.disabled = true;
+                    if (submitBtn) submitBtn.disabled = true;
                     return false;
                 }
+
+                warningEl.textContent = '';
+                if (nextBtn) nextBtn.disabled = false;
+                if (submitBtn) submitBtn.disabled = false;
                 return true;
             }
 

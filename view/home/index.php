@@ -26,20 +26,24 @@
             FROM vehicles v
             LEFT JOIN bookings b ON v.vehicleid = b.vehicle_id
             LEFT JOIN comments c ON b.booking_id = c.booking_id
-            WHERE v.status = 'available' 
+            WHERE v.status = 'available' AND v.type != 'Refrigerated'
             GROUP BY v.vehicleid
             ORDER BY v.date_added DESC 
             ";
 
             $result = $conn->query($query);
+            $count = 0;
 
             if ($result && $result->num_rows > 0):
                 while ($car = $result->fetch_assoc()):
+                    $count++;
+                    $hiddenClass = $count > 6 ? 'd-none hidden-vehicle' : '';
+
                     $average_rating = round($car['average_rating'], 1);
                     $total_ratings = $car['total_ratings'];
                     $image_path = "uploads/vehicles/" . $car['image_path'] ?: 'uploads/default-vehicle.jpg';
                     ?>
-                    <div class="col-md-4 mb-4">
+                    <div class="col-12 col-md-6 col-lg-4 mb-4 vehicle-grid-item <?= $hiddenClass ?>">
                         <div class="vehicle-card h-100">
                             <!-- Vehicle Image -->
                             <div class="vehicle-image-container">
@@ -121,8 +125,31 @@
                             </div>
                         </div>
                     </div>
-                <?php endwhile;
-            else: ?>
+                <?php endwhile; ?>
+
+                <?php if ($count > 6): ?>
+                    <div class="col-12 text-center mt-4 mb-5">
+                        <button id="viewMoreBtn" class="btn btn-outline-primary btn-lg rounded-pill px-5 fw-bold">
+                            View More Vehicles <i class="bi bi-arrow-down-circle ms-2"></i>
+                        </button>
+                    </div>
+                    <script>
+                        document.addEventListener('DOMContentLoaded', function () {
+                            const viewMoreBtn = document.getElementById('viewMoreBtn');
+                            if (viewMoreBtn) {
+                                viewMoreBtn.addEventListener('click', function () {
+                                    document.querySelectorAll('.hidden-vehicle').forEach(el => {
+                                        el.classList.remove('d-none');
+                                        // add slight animation classes if needed, but remove d-none is enough
+                                    });
+                                    this.style.display = 'none';
+                                });
+                            }
+                        });
+                    </script>
+                <?php endif; ?>
+
+            <?php else: ?>
                 <div class="col-12">
                     <div class="no-vehicles-alert">
                         <div class="alert-icon">🚛</div>
@@ -192,7 +219,8 @@
     .vehicle-image-container {
         position: relative;
         overflow: hidden;
-        height: 240px;
+        height: 200px;
+        /* Scaled down from 240px */
     }
 
     .vehicle-image {
@@ -251,7 +279,8 @@
 
     /* Vehicle Content */
     .vehicle-content {
-        padding: 25px;
+        padding: 20px;
+        /* Scaled down from 25px */
         flex: 1;
     }
 
@@ -263,7 +292,8 @@
     }
 
     .vehicle-title {
-        font-size: 1.4rem;
+        font-size: 1.25rem;
+        /* Scaled down from 1.4rem */
         font-weight: 700;
         color: #1a202c;
         margin: 0;
@@ -272,7 +302,8 @@
     }
 
     .vehicle-price {
-        font-size: 1.3rem;
+        font-size: 1.2rem;
+        /* Scaled down from 1.3rem */
         font-weight: 700;
         color: #3182ce;
         white-space: nowrap;
@@ -444,6 +475,12 @@
             flex-direction: column;
             gap: 8px;
             align-items: flex-start;
+        }
+    }
+
+    @media (max-width: 991px) {
+        .spec-grid {
+            grid-template-columns: 1fr;
         }
     }
 

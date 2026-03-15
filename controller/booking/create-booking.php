@@ -323,6 +323,15 @@ if (!$vehicle) {
     ]);
     exit;
 }
+
+if ($total_weight > $vehicle['totalcapacitykg']) {
+    echo json_encode([
+        'status' => 'error',
+        'message' => 'Total weight exceeds vehicle capacity limit.',
+        'http_code' => 400
+    ]);
+    exit;
+}
 // Check if the vehicle is already booked for the selected date and time
 
 

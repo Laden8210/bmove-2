@@ -1,7 +1,7 @@
 <?php
 
 $reportType = isset($_GET['report-type']) ? $_GET['report-type'] : 'bookings';
-$startDate = isset($_GET['date-start']) ? $_GET['date-start'] : date('Y-m-01');
+$startDate = isset($_GET['date-start']) ? $_GET['date-start'] : date('Y-m-d', strtotime('-3 months'));
 $endDate = isset($_GET['date-end']) ? $_GET['date-end'] : date('Y-m-d');
 $reportData = [];
 $reportTitle = '';
