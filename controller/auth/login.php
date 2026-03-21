@@ -68,23 +68,65 @@ try {
 
     session_regenerate_id(true);
 
-    $_SESSION['auth'] = [
-        'user_id' => $user['uid'],
-        'role' => $user['account_type'],
-        'ip_address' => $_SERVER['REMOTE_ADDR'],
-        'user_agent' => $_SERVER['HTTP_USER_AGENT']
-    ];
+    // For customer accounts, require SMS OTP verification before granting access
+    if ($user['account_type'] === 'customer') {
+        require_once '../../function/SMSService.php';
 
-    echo json_encode([
-        'status' => 'success',
-        'message' => 'Login successful',
-        'user' => [
-            'uid' => $user['uid'],
-            'email' => $user['email_address'],
-            'role' => $user['account_type']
-        ],
-        'http_code' => 200
-    ]);
+        $otpGenerator = new OTPGenerator();
+        $otp = $otpGenerator->generateOTP();
+
+        // Store pending auth in session (not full auth yet)
+        $_SESSION['pending_otp'] = [
+            'user_id' => $user['uid'],
+            'role' => $user['account_type'],
+            'ip_address' => $_SERVER['REMOTE_ADDR'],
+            'user_agent' => $_SERVER['HTTP_USER_AGENT']
+        ];
+
+        // Send OTP via SMS
+        $smsResult = ['success' => false];
+        try {
+            $smsService = new SMSService();
+            $smsResult = $smsService->sendOTP($user['contact_number'], $otp);
+        } catch (Exception $smsEx) {
+            error_log("SMS OTP send failed: " . $smsEx->getMessage());
+        }
+
+        // Fallback: also send OTP via email
+        if (!$smsResult['success']) {
+            $mailer->sendOtp($user['email_address'], $otp);
+        }
+
+        // Mask the contact number for display (e.g., 09***...***89)
+        $contact = $user['contact_number'];
+        $masked = substr($contact, 0, 2) . str_repeat('*', max(0, strlen($contact) - 4)) . substr($contact, -2);
+
+        echo json_encode([
+            'status' => 'otp_required',
+            'message' => 'OTP verification required. A code has been sent to your phone.',
+            'masked_contact' => $masked,
+            'http_code' => 200
+        ]);
+    } else {
+        // Admin and driver accounts: direct login without OTP
+        $_SESSION['auth'] = [
+            'user_id' => $user['uid'],
+            'role' => $user['account_type'],
+            'ip_address' => $_SERVER['REMOTE_ADDR'],
+            'user_agent' => $_SERVER['HTTP_USER_AGENT']
+        ];
+
+        echo json_encode([
+            'status' => 'success',
+            'message' => 'Login successful',
+            'user' => [
+                'uid' => $user['uid'],
+                'email' => $user['email_address'],
+                'role' => $user['account_type']
+            ],
+            'http_code' => 200
+        ]);
+    }
 
 } catch (Exception $e) {
     echo json_encode([

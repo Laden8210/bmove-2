@@ -2,6 +2,7 @@
 
 require_once '../../config/config.php';
 require_once '../../function/UIDGenerator.php';
+require_once '../../function/NotificationService.php';
 
 ini_set('session.cookie_httponly', 1);
 ini_set('session.cookie_secure', $_SERVER['HTTP_HOST'] !== 'localhost');
@@ -114,6 +115,39 @@ $stmt->bind_param("ss", $status, $booking_id);
 
 
 if ($stmt->execute()) {
+    // Send SMS notification to customer
+    $customer_stmt = $conn->prepare("SELECT u.phone, u.full_name, u.email FROM users u WHERE u.uid = ?");
+    $customer_stmt->bind_param("s", $booking['user_id']);
+    $customer_stmt->execute();
+    $customer = $customer_stmt->get_result()->fetch_assoc();
+    $customer_stmt->close();
+
+    if ($customer) {
+        $notification = new NotificationService();
+        $smsMessage = "BMove Express: Your trip for Booking #{$booking_id} has been completed! "
+            . "Thank you for using our service. "
+            . "Please rate your experience from your dashboard.";
+
+        if (!empty($customer['phone'])) {
+            $notification->sendSMS($customer['phone'], $smsMessage);
+        }
+
+        if (!empty($customer['email'])) {
+            $notification->sendEmail(
+                $customer['email'],
+                "Trip Completed - Booking #{$booking_id}",
+                "<h3>Your trip is complete!</h3>"
+                . "<p>Dear {$customer['full_name']},</p>"
+                . "<p>Your trip for <strong>Booking #{$booking_id}</strong> has been completed successfully.</p>"
+                . "<p><strong>From:</strong> {$booking['pickup_location']}</p>"
+                . "<p><strong>To:</strong> {$booking['dropoff_location']}</p>"
+                . "<p>We'd love to hear about your experience. Please leave a rating and comment from your dashboard.</p>"
+                . "<p>Thank you for choosing BMove Express!</p>",
+                $customer['full_name']
+            );
+        }
+    }
+
     echo json_encode(['status' => 'success', 'message' => 'Booking updated successfully', 'http_code' => 200]);
 } else {
     echo json_encode(['status' => 'error', 'message' => 'Failed to update booking', 'http_code' => 500]);

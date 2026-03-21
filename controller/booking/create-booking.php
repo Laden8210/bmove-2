@@ -25,6 +25,12 @@ if (!isset($_SESSION['auth']['user_id'])) {
     exit;
 }
 
+// Ensure customer has completed OTP verification (not in pending_otp state)
+if (isset($_SESSION['pending_otp'])) {
+    echo json_encode(['status' => 'error', 'message' => 'Please complete SMS OTP verification before booking.', 'http_code' => 403]);
+    exit;
+}
+
 
 // form body
 $request_body = $_POST;
@@ -171,7 +177,7 @@ error_log("Received payment_method: '" . $payment_method . "' (length: " . strle
 error_log("Raw payment_method bytes: " . bin2hex($payment_method));
 
 // Validate payment method against allowed ENUM values
-$allowed_payment_methods = ['cash', 'gcash', 'maya', 'bank_transfer', 'paymongo'];
+$allowed_payment_methods = ['cash', 'gcash', 'maya', 'bank_transfer', 'paymongo', 'qr_code'];
 if (!in_array($payment_method, $allowed_payment_methods)) {
     echo json_encode([
         'status' => 'error',
@@ -349,6 +355,28 @@ if ($booking) {
     exit;
 }
 
+// Enforce mandatory 20-minute gap between bookings for driver preparation
+$gap_minutes = 20;
+$requested_datetime = $date . ' ' . $time . ':00';
+$gap_stmt = $conn->prepare("
+    SELECT booking_id, date, time FROM bookings 
+    WHERE vehicle_id = ? 
+    AND date = ? 
+    AND status NOT IN ('completed', 'cancelled')
+    AND ABS(TIMESTAMPDIFF(MINUTE, CONCAT(date, ' ', time, ':00'), ?)) < ?
+");
+$gap_stmt->bind_param("sssi", $vehicle_id, $date, $requested_datetime, $gap_minutes);
+$gap_stmt->execute();
+$gap_result = $gap_stmt->get_result();
+if ($gap_result->num_rows > 0) {
+    echo json_encode([
+        'status' => 'error',
+        'message' => "A minimum {$gap_minutes}-minute gap is required between bookings for driver preparation. Please select a different time slot.",
+        'http_code' => 400
+    ]);
+    exit;
+}
+
 
 
 $stmt = $conn->prepare("
@@ -431,7 +459,7 @@ if ($stmt->execute()) {
         $stmt->close();
 
         // If PayMongo payment method, create checkout session
-        if ($payment_method === 'paymongo') {
+        if ($payment_method === 'paymongo' || $payment_method === 'qr_code') {
             require_once '../../function/PayMongoService.php';
 
             try {
@@ -490,7 +518,7 @@ if ($stmt->execute()) {
                         'message' => 'Booking created successfully. Redirecting to payment...',
                         'booking_id' => $booking_id,
                         'checkout_url' => $checkoutUrl,
-                        'payment_method' => 'paymongo',
+                        'payment_method' => $payment_method,
                         'http_code' => 200
                     ]);
                 } else {

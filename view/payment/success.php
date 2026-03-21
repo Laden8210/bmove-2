@@ -89,7 +89,7 @@ $pageTitle = "Payment Success - BMove";
                             <a href="customer-dashboard" class="btn btn-primary btn-lg">
                                 <i class="bi bi-house me-2"></i>Go to Dashboard
                             </a>
-                            <a href="book" class="btn btn-outline-secondary">
+                            <a href="home" class="btn btn-outline-secondary">
                                 <i class="bi bi-plus-circle me-2"></i>Make Another Booking
                             </a>
                         </div>

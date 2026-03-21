@@ -43,6 +43,10 @@ if (strlen($username) < 3 || strlen($username) > 20) {
     echo json_encode(['status' => 'error', 'message' => 'Username must be between 3 and 20 characters', 'http_code' => 400]);
     exit;
 }
+if (!preg_match('/^[a-zA-Z0-9]+$/', $username)) {
+    echo json_encode(['status' => 'error', 'message' => 'Username can only contain letters and numbers. No special characters or spaces allowed.', 'http_code' => 400]);
+    exit;
+}
 
 // CHECK IF USERNAME IS ALREADY TAKEN
 $check_username = $conn->prepare("SELECT * FROM users WHERE username = ?");

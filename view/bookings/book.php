@@ -1,6 +1,6 @@
 <?php
 if (!isset($_GET['car'])) {
-    header('Location: vehicle_selection.php');
+    echo "<script>window.location.href = 'home';</script>";
     exit();
 }
 
@@ -598,7 +598,7 @@ $selectedVehicle['totalcapacitykg'] = $selectedVehicle['totalcapacitykg'] ?? 0;
                                 <label for="pickup" class="form-label"><i class="bi bi-geo-alt me-1"></i>Pickup
                                     Location</label>
                                 <input type="text" id="pickup" name="pickup_location"
-                                    class="form-control form-control-lg" placeholder="Enter pickup address" required>
+                                    class="form-control form-control-lg" placeholder="Enter complete pickup address (e.g., 123 Main St, Brgy. Centro, Balanga, Bataan)" required maxlength="500">
                                 <div class="invalid-feedback">Please select a pickup location</div>
 
                                 <div class="form-check current-location-checkbox">
@@ -613,7 +613,7 @@ $selectedVehicle['totalcapacitykg'] = $selectedVehicle['totalcapacitykg'] ?? 0;
                                 <label for="dropoff" class="form-label"><i class="bi bi-geo-alt-fill me-1"></i>Drop-off
                                     Location</label>
                                 <input type="text" id="dropoff" name="dropoff_location"
-                                    class="form-control form-control-lg" placeholder="Enter drop-off address" required>
+                                    class="form-control form-control-lg" placeholder="Enter complete drop-off address (e.g., 456 Rizal Ave, Brgy. Poblacion, Dinalupihan, Bataan)" required maxlength="500">
                                 <div class="invalid-feedback">Please select a drop-off location</div>
                             </div>
 
@@ -623,7 +623,7 @@ $selectedVehicle['totalcapacitykg'] = $selectedVehicle['totalcapacitykg'] ?? 0;
                                         Date</label>
                                     <input type="date" id="date" name="date" class="form-control form-control-lg"
                                         min="<?= date('Y-m-d') ?>" max="<?= date('Y-m-d', strtotime('+3 months')) ?>"
-                                        required>
+                                        required onchange="updateTimeSlots()">
                                     <small class="text-muted d-block mt-1">You can only book up to 3 months in
                                         advance.</small>
                                     <div class="invalid-feedback">Please select a date within the next 3 months</div>
@@ -639,10 +639,11 @@ $selectedVehicle['totalcapacitykg'] = $selectedVehicle['totalcapacitykg'] ?? 0;
                                         for ($t = $start; $t <= $end; $t += 1800) {
                                             $val = date('H:i', $t);
                                             $label = date('g:i A', $t);
-                                            echo "<option value=\"$val\">$label</option>";
+                                            echo "<option value=\"$val\" data-time=\"$val\">$label</option>";
                                         }
                                         ?>
                                     </select>
+                                    <small class="text-muted d-block mt-1" id="time-hint"></small>
                                     <div class="invalid-feedback">Please select a preferred time</div>
                                 </div>
                             </div>
@@ -692,24 +693,39 @@ $selectedVehicle['totalcapacitykg'] = $selectedVehicle['totalcapacitykg'] ?? 0;
                                     required>
                                     <option value="" disabled selected>Select payment method</option>
                                     <option value="paymongo">Online Payment (GCash, Maya, GrabPay)</option>
+                                    <option value="qr_code">QR Code Payment</option>
                                     <option value="cash">Cash on Delivery (COD)</option>
                                 </select>
                                 <div class="invalid-feedback">Please select a payment method</div>
                             </div>
 
+                            <!-- QR Code Payment Info -->
+                            <div id="qr_payment_info" class="alert alert-info mt-3 d-none">
+                                <strong><i class="bi bi-qr-code me-1"></i>QR Code Payment:</strong>
+                                <p class="mb-2 mt-2">After confirming your booking, a QR code will be generated for you to scan and pay using your preferred e-wallet or banking app.</p>
+                                <ul class="mb-0">
+                                    <li>Supports GCash, Maya, bank apps, and any QR Ph-compatible app.</li>
+                                    <li>Payment must be completed within <strong>30 minutes</strong> of booking confirmation.</li>
+                                    <li>Your booking will be confirmed once payment is verified.</li>
+                                </ul>
+                            </div>
+
                             <div id="cod_policy" class="alert alert-warning mt-3 d-none">
-                                <strong>Cash on Delivery Policy:</strong>
-                                <p class="mb-2">For bookings (Move A Thing / Car Rental) using COD, please note:</p>
-                                <ul class="mb-3">
-                                    <li>Prepare the exact amount upon delivery or rental handover.</li>
-                                    <li>COD is only available within approved service areas.</li>
-                                    <li>Failure to pay on delivery may result in account restrictions or denial of
-                                        future bookings.</li>
+                                <strong><i class="bi bi-exclamation-triangle me-1"></i>Cash on Delivery (COD) Policy:</strong>
+                                <p class="mb-2 mt-2">For bookings using Cash on Delivery, please read and agree to the following:</p>
+                                <ul class="mb-2">
+                                    <li>Prepare the <strong>exact amount</strong> upon delivery or rental handover.</li>
+                                    <li>COD is only available within approved service areas in Bataan.</li>
+                                    <li>If unable to pay the full amount on delivery, you must notify BMoveXpress <strong>at least 2 hours before</strong> the scheduled pickup time.</li>
+                                    <li>Failure to pay on delivery will result in a <strong>COD surcharge of ₱150</strong> and may lead to account restrictions.</li>
+                                    <li>Repeated COD failures (3 or more) will result in <strong>permanent suspension of COD privileges</strong>.</li>
+                                    <li>In unexpected situations where COD cannot be fulfilled, the driver will attempt to contact you. If unreachable within 15 minutes, the booking will be <strong>marked as failed</strong>.</li>
+                                    <li>For amounts exceeding ₱5,000, online payment is strongly recommended.</li>
                                 </ul>
                                 <div class="form-check">
                                     <input class="form-check-input" type="checkbox" id="cod_agree" required>
                                     <label class="form-check-label" for="cod_agree">
-                                        I agree to the Cash on Delivery policy
+                                        I have read, understood, and agree to the Cash on Delivery policy
                                     </label>
                                     <div class="invalid-feedback">You must agree to the COD policy before proceeding.
                                     </div>
@@ -741,17 +757,78 @@ $selectedVehicle['totalcapacitykg'] = $selectedVehicle['totalcapacitykg'] ?? 0;
     </div>
 
     <script>
+        // Disable past time slots when selected date is today
+        function updateTimeSlots() {
+            const dateInput = document.getElementById('date');
+            const timeSelect = document.getElementById('time');
+            const timeHint = document.getElementById('time-hint');
+            const selectedDate = dateInput.value;
+            const today = new Date().toISOString().split('T')[0];
+            const options = timeSelect.querySelectorAll('option[data-time]');
+
+            if (selectedDate === today) {
+                const now = new Date();
+                const currentMinutes = now.getHours() * 60 + now.getMinutes();
+                let disabledCount = 0;
+
+                options.forEach(opt => {
+                    const [h, m] = opt.dataset.time.split(':').map(Number);
+                    const slotMinutes = h * 60 + m;
+                    if (slotMinutes <= currentMinutes) {
+                        opt.disabled = true;
+                        opt.classList.add('text-muted');
+                        disabledCount++;
+                        // If this option is currently selected, deselect it
+                        if (opt.selected) {
+                            timeSelect.value = '';
+                        }
+                    } else {
+                        opt.disabled = false;
+                        opt.classList.remove('text-muted');
+                    }
+                });
+
+                if (disabledCount > 0) {
+                    timeHint.textContent = 'Past time slots for today are disabled.';
+                } else {
+                    timeHint.textContent = '';
+                }
+            } else {
+                // Future date: enable all slots
+                options.forEach(opt => {
+                    opt.disabled = false;
+                    opt.classList.remove('text-muted');
+                });
+                timeHint.textContent = '';
+            }
+        }
+
+        // Run on page load if date is pre-filled
+        document.addEventListener('DOMContentLoaded', function() {
+            if (document.getElementById('date').value) {
+                updateTimeSlots();
+            }
+        });
+
         document.getElementById('payment_method').addEventListener('change', function () {
             const codPolicy = document.getElementById('cod_policy');
             const codAgree = document.getElementById('cod_agree');
+            const qrInfo = document.getElementById('qr_payment_info');
 
             if (this.value === 'cash') {
                 codPolicy.classList.remove('d-none');
                 codAgree.setAttribute('required', 'required');
+                qrInfo.classList.add('d-none');
             } else {
                 codPolicy.classList.add('d-none');
                 codAgree.removeAttribute('required');
                 codAgree.checked = false;
+            }
+
+            if (this.value === 'qr_code') {
+                qrInfo.classList.remove('d-none');
+            } else {
+                qrInfo.classList.add('d-none');
             }
         });
     </script>
@@ -911,6 +988,18 @@ $selectedVehicle['totalcapacitykg'] = $selectedVehicle['totalcapacitykg'] ?? 0;
 
                     // Redirect to PayMongo checkout
                     window.location.href = data.checkout_url;
+                } else if (data.payment_method === 'qr_code' && data.booking_id) {
+                    // Redirect to QR code payment page
+                    await Swal.fire({
+                        title: "QR Code Payment",
+                        text: "Your booking has been created. Redirecting to QR code payment...",
+                        icon: "info",
+                        showConfirmButton: false,
+                        timer: 2000,
+                        timerProgressBar: true
+                    });
+
+                    window.location.href = 'qr-payment?booking_id=' + data.booking_id;
                 } else {
                     // Show success message for cash payments
                     await Swal.fire({

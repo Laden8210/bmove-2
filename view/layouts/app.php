@@ -8,7 +8,7 @@
     ?>
 </head>
 
-<body>
+<body class="d-flex flex-column min-vh-100">
 
     <?php
 
@@ -35,7 +35,8 @@
         'payment-success',
         'payment-cancel',
         'track-driver',
-        'verify-otp'
+        'verify-otp',
+        'my-profile'
     ];
     if (!in_array($currentRoute, $hideTopBarRoutes)) {
         include 'view/components/header.php';
@@ -44,7 +45,9 @@
         include 'view/components/home-nav.php';
     }
 
+    echo '<main class="flex-grow-1 mb-5">';
     include $content;
+    echo '</main>';
 
     ?>
 

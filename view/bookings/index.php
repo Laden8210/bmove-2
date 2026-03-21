@@ -203,6 +203,15 @@ $result = $conn->query($sql);
                             onclick="document.getElementById('statusBookingId').value = this.dataset.id;">
                             <i class="bi bi-pencil-square"></i>
                           </button>
+
+                          <?php if (!in_array(strtolower($row['status']), ['completed', 'cancelled'])): ?>
+                          <!-- Reassign Vehicle Button -->
+                          <button class="btn btn-sm btn-outline-warning reassign-btn" title="Reassign Vehicle"
+                            data-booking-id="<?php echo htmlspecialchars($row['booking_id']); ?>"
+                            onclick="openReassignModal(this.dataset.bookingId)">
+                            <i class="bi bi-arrow-repeat"></i>
+                          </button>
+                          <?php endif; ?>
                         </td>
 
                       </tr>
@@ -222,6 +231,55 @@ $result = $conn->query($sql);
     </div>
   </section>
 </main>
+
+<!-- Reassign Vehicle Modal -->
+<div class="modal fade" id="reassignModal" tabindex="-1" aria-labelledby="reassignModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header bg-warning text-dark">
+        <h5 class="modal-title"><i class="bi bi-arrow-repeat me-2"></i>Reassign Vehicle</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div id="reassignLoading" class="text-center py-4">
+          <div class="spinner-border text-warning" role="status"></div>
+          <p class="mt-2 text-muted">Loading available vehicles...</p>
+        </div>
+        <div id="reassignContent" style="display:none;">
+          <div class="alert alert-info mb-3">
+            <i class="bi bi-info-circle me-1"></i>
+            Current vehicle: <strong id="reassignCurrentVehicle"></strong>
+            (Type: <strong id="reassignVehicleType"></strong>)
+          </div>
+          <p class="text-muted mb-2">Select a replacement vehicle of the same type:</p>
+          <div class="table-responsive">
+            <table class="table table-hover" id="reassignTable">
+              <thead class="table-light">
+                <tr>
+                  <th>Vehicle Name</th>
+                  <th>Plate</th>
+                  <th>Model / Year</th>
+                  <th>Driver</th>
+                  <th>Base Price</th>
+                  <th>Rate/km</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody id="reassignTableBody"></tbody>
+            </table>
+          </div>
+          <div id="reassignEmpty" class="text-center text-muted py-3" style="display:none;">
+            <i class="bi bi-exclamation-circle fs-3 d-block mb-2"></i>
+            No available vehicles of the same type found.
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
 
 <!-- Update Status Modal -->
 <div class="modal fade" id="statusModal" tabindex="-1" aria-labelledby="statusModalLabel" aria-hidden="true">
@@ -486,4 +544,151 @@ $result = $conn->query($sql);
       }
     });
   });
+
+  // Reassign Vehicle functionality
+  let reassignBookingId = null;
+
+  function openReassignModal(bookingId) {
+    reassignBookingId = bookingId;
+    const modal = new bootstrap.Modal(document.getElementById('reassignModal'));
+    modal.show();
+
+    document.getElementById('reassignLoading').style.display = 'block';
+    document.getElementById('reassignContent').style.display = 'none';
+
+    fetch(`controller/booking/reassign-vehicle.php?booking_id=${encodeURIComponent(bookingId)}`)
+      .then(res => res.json())
+      .then(data => {
+        document.getElementById('reassignLoading').style.display = 'none';
+        document.getElementById('reassignContent').style.display = 'block';
+
+        if (data.status === 'success') {
+          document.getElementById('reassignCurrentVehicle').textContent = data.data.current_vehicle;
+          document.getElementById('reassignVehicleType').textContent = data.data.vehicle_type;
+
+          const tbody = document.getElementById('reassignTableBody');
+          tbody.innerHTML = '';
+
+          if (data.data.recommendations.length === 0) {
+            document.getElementById('reassignTable').style.display = 'none';
+            document.getElementById('reassignEmpty').style.display = 'block';
+          } else {
+            document.getElementById('reassignTable').style.display = '';
+            document.getElementById('reassignEmpty').style.display = 'none';
+
+            data.data.recommendations.forEach(v => {
+              const row = document.createElement('tr');
+              row.innerHTML = `
+                <td>${escapeHtml(v.name)}</td>
+                <td>${escapeHtml(v.platenumber)}</td>
+                <td>${escapeHtml(v.model)} / ${escapeHtml(v.year)}</td>
+                <td>${escapeHtml(v.driver_name || 'Unassigned')}</td>
+                <td>&#8369;${parseFloat(v.baseprice).toFixed(2)}</td>
+                <td>&#8369;${parseFloat(v.rateperkm).toFixed(2)}</td>
+                <td>
+                  <button class="btn btn-sm btn-warning" onclick="confirmReassign('${escapeHtml(v.vehicleid)}', '${escapeHtml(v.name)}')">
+                    <i class="bi bi-check-lg"></i> Select
+                  </button>
+                </td>
+              `;
+              tbody.appendChild(row);
+            });
+          }
+        } else {
+          Swal.fire('Error', data.message, 'error');
+        }
+      })
+      .catch(() => {
+        document.getElementById('reassignLoading').style.display = 'none';
+        Swal.fire('Error', 'Failed to load vehicle recommendations', 'error');
+      });
+  }
+
+  function confirmReassign(vehicleId, vehicleName) {
+    Swal.fire({
+      title: 'Reassign Vehicle?',
+      html: `Are you sure you want to reassign this booking to <strong>${vehicleName}</strong>?`,
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonColor: '#ffc107',
+      confirmButtonText: 'Yes, reassign',
+      cancelButtonText: 'Cancel'
+    }).then(result => {
+      if (result.isConfirmed) {
+        fetch('controller/booking/reassign-vehicle.php', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            booking_id: reassignBookingId,
+            new_vehicle_id: vehicleId
+          })
+        })
+        .then(res => res.json())
+        .then(data => {
+          if (data.status === 'success') {
+            Swal.fire('Success', 'Vehicle reassigned successfully!', 'success')
+              .then(() => location.reload());
+          } else {
+            Swal.fire('Error', data.message, 'error');
+          }
+        })
+        .catch(() => Swal.fire('Error', 'Failed to reassign vehicle', 'error'));
+      }
+    });
+  }
+
+  function escapeHtml(str) {
+    if (!str) return '';
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+  }
+
+  // Auto-sync: poll for booking status changes every 15 seconds
+  let knownStatuses = {};
+  document.querySelectorAll('tr[data-booking-id]').forEach(r => {
+    knownStatuses[r.dataset.bookingId] = r.dataset.bookingStatus;
+  });
+
+  // Store booking IDs and statuses from server-rendered table
+  (function initBookingSync() {
+    document.querySelectorAll('.update-status-btn').forEach(btn => {
+      const row = btn.closest('tr');
+      const badgeEl = row?.querySelector('.badge');
+      if (btn.dataset.id && badgeEl) {
+        knownStatuses[btn.dataset.id] = badgeEl.textContent.trim().toLowerCase();
+      }
+    });
+  })();
+
+  setInterval(() => {
+    fetch('controller/booking/get-dashboard-data.php')
+      .then(r => r.json())
+      .then(res => {
+        if (res.status !== 'success' || !res.data.recentBookings) return;
+        let changed = false;
+        res.data.recentBookings.forEach(b => {
+          const prev = knownStatuses[b.booking_id];
+          if (prev && prev !== b.status) {
+            changed = true;
+          }
+        });
+        if (changed) {
+          // Show a non-intrusive banner to refresh
+          if (!document.getElementById('sync-banner')) {
+            const banner = document.createElement('div');
+            banner.id = 'sync-banner';
+            banner.className = 'alert alert-info alert-dismissible fade show position-fixed bottom-0 start-50 translate-middle-x mb-3 shadow';
+            banner.style.zIndex = '1090';
+            banner.innerHTML = `
+              <i class="bi bi-arrow-repeat me-1"></i>
+              Booking statuses have been updated by a driver.
+              <button class="btn btn-sm btn-primary ms-2" onclick="location.reload()">Refresh Now</button>
+              <button type="button" class="btn-close" data-bs-dismiss="alert"></button>`;
+            document.body.appendChild(banner);
+          }
+        }
+      })
+      .catch(() => {});
+  }, 15000);
 </script>

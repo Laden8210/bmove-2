@@ -16,6 +16,15 @@ if ($result && $row = $result->fetch_assoc()) {
     $revenue = $row['total_revenue'] ?? 0;
 }
 
+// Calculate admin's gross profit (60% of net profit after expenses)
+$totalExpensesAll = 0;
+$expResult = $conn->query("SELECT SUM(amount) AS total_expenses FROM vehicle_expenses");
+if ($expResult && $expRow = $expResult->fetch_assoc()) {
+    $totalExpensesAll = $expRow['total_expenses'] ?? 0;
+}
+$netProfitAll = $revenue - $totalExpensesAll;
+$adminGrossProfit = $netProfitAll * 0.60;
+
 $result = $conn->query("SELECT COUNT(*) AS total_bookings FROM bookings");
 if ($result && $row = $result->fetch_assoc()) {
     $bookings = $row['total_bookings'] ?? 0;
@@ -42,10 +51,11 @@ if ($result) {
     }
 }
 
-// Recent Bookings
+// Recent Bookings with real data
 $recentBookings = [];
 $result = $conn->query("
-    SELECT b.booking_id, u.full_name, v.name AS vehicle_name, b.date, b.time, b.status 
+    SELECT b.booking_id, u.full_name, v.name AS vehicle_name, b.date, b.time, b.status,
+           b.total_distance, b.total_price
     FROM bookings b
     JOIN users u ON b.user_id = u.uid
     LEFT JOIN vehicles v ON b.vehicle_id = v.vehicleid
@@ -306,7 +316,7 @@ $maxRevenue = max($chartData) > 0 ? max($chartData) : 10000; // Avoid division b
                         <div class="d-flex justify-content-between align-items-center">
                             <div>
                                 <h5 class="card-title text-muted mb-2">Bookings</h5>
-                                <h3 class="mb-0"><?= number_format($bookings) ?></h3>
+                                <h3 class="mb-0" id="stat-bookings"><?= number_format($bookings) ?></h3>
                                 <p class="text-success small mb-0 mt-1">
                                     <i class="bi bi-arrow-up"></i> Weekly
                                 </p>
@@ -325,7 +335,7 @@ $maxRevenue = max($chartData) > 0 ? max($chartData) : 10000; // Avoid division b
                         <div class="d-flex justify-content-between align-items-center">
                             <div>
                                 <h5 class="card-title text-muted mb-2">Active Rentals</h5>
-                                <h3 class="mb-0"><?= number_format($activeRentals) ?></h3>
+                                <h3 class="mb-0" id="stat-active-rentals"><?= number_format($activeRentals) ?></h3>
                                 <p class="text-muted small mb-0 mt-1">
                                     Currently in use
                                 </p>
@@ -344,7 +354,7 @@ $maxRevenue = max($chartData) > 0 ? max($chartData) : 10000; // Avoid division b
                         <div class="d-flex justify-content-between align-items-center">
                             <div>
                                 <h5 class="card-title text-muted mb-2">Vehicles</h5>
-                                <h3 class="mb-0"><?= number_format($totalVehicles) ?></h3>
+                                <h3 class="mb-0" id="stat-vehicles"><?= number_format($totalVehicles) ?></h3>
                                 <p class="text-success small mb-0 mt-1">
                                     <i class="bi bi-plus-circle"></i> Total count
                                 </p>
@@ -362,10 +372,10 @@ $maxRevenue = max($chartData) > 0 ? max($chartData) : 10000; // Avoid division b
                     <div class="card-body">
                         <div class="d-flex justify-content-between align-items-center">
                             <div>
-                                <h5 class="card-title text-muted mb-2">Total Revenue</h5>
-                                <h3 class="mb-0">₱<?= number_format($revenue, 0) ?></h3>
+                                <h5 class="card-title text-muted mb-2">Admin Gross Profit</h5>
+                                <h3 class="mb-0" id="stat-admin-profit">₱<?= number_format($adminGrossProfit, 0) ?></h3>
                                 <p class="text-muted small mb-0 mt-1">
-                                    From <?= number_format($bookings) ?> bookings
+                                    60% of net profit
                                 </p>
                             </div>
                             <div class="stat-icon bg-primary bg-opacity-10 text-primary">
@@ -483,7 +493,7 @@ $maxRevenue = max($chartData) > 0 ? max($chartData) : 10000; // Avoid division b
                                         <th>Status</th>
                                     </tr>
                                 </thead>
-                                <tbody>
+                                <tbody id="recent-bookings-body">
                                     <?php foreach ($recentBookings as $booking):
                                         // Get initials for avatar
                                         $names = explode(' ', $booking['full_name']);
@@ -513,9 +523,9 @@ $maxRevenue = max($chartData) > 0 ? max($chartData) : 10000; // Avoid division b
                                                 break;
                                         }
 
-                                        // Generate random distance and revenue for demo
-                                        $distance = rand(5, 50) . ' km';
-                                        $revenue = '₱' . rand(500, 3000);
+                                        // Use real booking data
+                                        $distance = htmlspecialchars($booking['total_distance'] ?? '0') . ' km';
+                                        $bookingRevenue = '₱' . number_format($booking['total_price'] ?? 0, 2);
                                         ?>
                                         <tr class="<?= $booking['status'] == 'in_progress' ? 'table-primary' : '' ?>">
                                             <td>
@@ -530,7 +540,7 @@ $maxRevenue = max($chartData) > 0 ? max($chartData) : 10000; // Avoid division b
                                             <td><?= date('M d, Y', strtotime($booking['date'])) . ' ' . $booking['time'] ?>
                                             </td>
                                             <td><?= $distance ?></td>
-                                            <td class="fw-bold"><?= $revenue ?></td>
+                                            <td class="fw-bold"><?= $bookingRevenue ?></td>
                                             <td>
                                                 <span class="status-badge bg-<?= $statusClass ?>">
                                                     <?= ucwords(str_replace('_', ' ', $booking['status'])) ?>
@@ -643,11 +653,14 @@ $maxRevenue = max($chartData) > 0 ? max($chartData) : 10000; // Avoid division b
     });
 
     // Filter functionality
-    document.getElementById('yearSelector').addEventListener('change', function () {
-        const year = this.value;
-        const month = <?= $selectedMonth ?>;
-        window.location.href = `?year=${year}&month=${month}`;
-    });
+    const yearSelector = document.getElementById('yearSelector');
+    if (yearSelector) {
+        yearSelector.addEventListener('change', function () {
+            const year = this.value;
+            const month = <?= $selectedMonth ?>;
+            window.location.href = `?year=${year}&month=${month}`;
+        });
+    }
 
     document.querySelectorAll('.month-item').forEach(item => {
         item.addEventListener('click', function () {
@@ -656,4 +669,85 @@ $maxRevenue = max($chartData) > 0 ? max($chartData) : 10000; // Avoid division b
             window.location.href = `?year=${year}&month=${month}`;
         });
     });
+
+    // Real-time dashboard polling every 15 seconds
+    let previousBookingStatuses = {};
+
+    function refreshDashboardData() {
+        fetch('controller/booking/get-dashboard-data.php')
+            .then(res => res.json())
+            .then(response => {
+                if (response.status !== 'success') return;
+                const d = response.data;
+
+                // Update stat cards
+                document.getElementById('stat-bookings').textContent = Number(d.bookings).toLocaleString();
+                document.getElementById('stat-active-rentals').textContent = Number(d.activeRentals).toLocaleString();
+                document.getElementById('stat-vehicles').textContent = Number(d.totalVehicles).toLocaleString();
+                document.getElementById('stat-admin-profit').textContent = '₱' + Number(d.adminGrossProfit).toLocaleString(undefined, {maximumFractionDigits: 0});
+
+                // Detect status changes and show toast notifications
+                if (d.recentBookings) {
+                    d.recentBookings.forEach(b => {
+                        const prev = previousBookingStatuses[b.booking_id];
+                        if (prev && prev !== b.status) {
+                            const statusLabel = b.status.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase());
+                            showSyncToast(`Booking for ${b.full_name} is now <strong>${statusLabel}</strong>`);
+                        }
+                        previousBookingStatuses[b.booking_id] = b.status;
+                    });
+                }
+
+                // Update recent bookings table
+                const tbody = document.getElementById('recent-bookings-body');
+                if (tbody && d.recentBookings) {
+                    let html = '';
+                    d.recentBookings.forEach(b => {
+                        const names = b.full_name.split(' ');
+                        const initials = (names[0]?.[0] || '').toUpperCase() + (names[1]?.[0] || '').toUpperCase();
+                        const statusClass = b.status || '';
+                        const dateStr = new Date(b.date).toLocaleDateString('en-US', {month: 'short', day: 'numeric', year: 'numeric'});
+                        const distance = (b.total_distance || 0) + ' km';
+                        const revenue = '₱' + Number(b.total_price || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                        const isActive = b.status === 'in_progress' ? 'table-primary' : '';
+                        const statusLabel = b.status.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase());
+                        html += `<tr class="${isActive}">
+                            <td><div class="d-flex align-items-center"><div class="customer-avatar me-2">${initials}</div><div>${b.full_name}</div></div></td>
+                            <td>${b.vehicle_name || 'No Vehicle'}</td>
+                            <td>${dateStr} ${b.time}</td>
+                            <td>${distance}</td>
+                            <td class="fw-bold">${revenue}</td>
+                            <td><span class="status-badge bg-${statusClass}">${statusLabel}</span></td>
+                        </tr>`;
+                    });
+                    tbody.innerHTML = html;
+                }
+            })
+            .catch(err => console.error('Dashboard refresh error:', err));
+    }
+
+    function showSyncToast(message) {
+        const container = document.getElementById('toast-container') || createToastContainer();
+        const toast = document.createElement('div');
+        toast.className = 'toast align-items-center text-bg-info border-0 show';
+        toast.setAttribute('role', 'alert');
+        toast.innerHTML = `
+            <div class="d-flex">
+                <div class="toast-body"><i class="bi bi-arrow-repeat me-1"></i> ${message}</div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+            </div>`;
+        container.appendChild(toast);
+        setTimeout(() => toast.remove(), 5000);
+    }
+
+    function createToastContainer() {
+        const c = document.createElement('div');
+        c.id = 'toast-container';
+        c.className = 'toast-container position-fixed top-0 end-0 p-3';
+        c.style.zIndex = '1090';
+        document.body.appendChild(c);
+        return c;
+    }
+
+    setInterval(refreshDashboardData, 15000);
 </script>

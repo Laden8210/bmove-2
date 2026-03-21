@@ -4,7 +4,7 @@
             <img src="public/images/c580uoa9yo.jpg" alt="Family Home" class="img-fluid mb-4">
             <h1 class="display-5 fw-bold mb-3">We are Here to Help You Move</h1>
             <p class="lead">WE MAKE MOVING EASY, FAST, AND HASSLE FREE.</p>
-            <a href="#" class="btn btn-primary btn-lg my-3">BOOK NOW</a>
+            <a href="register" class="btn btn-primary btn-lg my-3">BOOK NOW</a>
         </div>
         <div class="row mt-5">
             <?php

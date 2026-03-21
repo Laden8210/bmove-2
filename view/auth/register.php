@@ -37,7 +37,10 @@
                 <div class="mb-3">
                     <label for="username" class="form-label">User Name:</label>
                     <input type="text" class="form-control" id="username" name="username" placeholder="User Name"
-                        required>
+                        required oninput="validateUsername()" pattern="[a-zA-Z0-9]+" maxlength="20">
+                    <div id="username-warning" class="form-text text-danger d-none">
+                        <i class="fas fa-exclamation-triangle"></i> Only letters and numbers are allowed. No special characters or spaces.
+                    </div>
                 </div>
                 <div class="mb-3">
                     <label for="password" class="form-label">Password:</label>
@@ -82,6 +85,22 @@
 
 
 <script>
+    function validateUsername() {
+        var usernameInput = document.getElementById('username');
+        var warning = document.getElementById('username-warning');
+        var value = usernameInput.value;
+
+        // Allow only letters and numbers (no special characters or spaces)
+        var sanitizedValue = value.replace(/[^a-zA-Z0-9]/g, '');
+
+        if (value !== sanitizedValue) {
+            usernameInput.value = sanitizedValue;
+            warning.classList.remove('d-none');
+        } else {
+            warning.classList.add('d-none');
+        }
+    }
+
     function validateFullName() {
         var fullNameInput = document.getElementById('full_name');
         var warning = document.getElementById('fullname-warning');
@@ -194,6 +213,12 @@
         var fullName = document.getElementById('full_name').value;
         if (!/^[a-zA-Z\s\-\.]+$/.test(fullName)) {
             Swal.fire('Invalid Full Name', 'Full name can only contain letters, spaces, dashes, and periods.', 'warning');
+            return false;
+        }
+
+        var username = document.getElementById('username').value;
+        if (!/^[a-zA-Z0-9]+$/.test(username) || username.length < 3 || username.length > 20) {
+            Swal.fire('Invalid Username', 'Username must be 3-20 characters and contain only letters and numbers.', 'warning');
             return false;
         }
 

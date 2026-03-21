@@ -35,6 +35,7 @@ if ($_SESSION['auth']['role'] !== 'admin') {
 $vehicle_id = $_POST['vehicle_id'] ?? '';
 $expense_date = $_POST['expense_date'] ?? '';
 $expense_type = $_POST['expense_type'] ?? '';
+$expense_category = $_POST['expense_category'] ?? 'admin';
 $description = $_POST['description'] ?? '';
 $amount = $_POST['amount'] ?? '';
 
@@ -46,6 +47,7 @@ if (empty($vehicle_id) || empty($expense_date) || empty($expense_type) || empty(
 $vehicle_id = filter_var($vehicle_id, FILTER_SANITIZE_STRING);
 $expense_date = filter_var($expense_date, FILTER_SANITIZE_STRING);
 $expense_type = filter_var($expense_type, FILTER_SANITIZE_STRING);
+$expense_category = filter_var($expense_category, FILTER_SANITIZE_STRING);
 $description = filter_var($description, FILTER_SANITIZE_STRING);
 $amount = floatval($amount);
 
@@ -55,13 +57,19 @@ if (!in_array($expense_type, $valid_types)) {
     exit;
 }
 
+$valid_categories = ['admin', 'driver'];
+if (!in_array($expense_category, $valid_categories)) {
+    echo json_encode(['status' => 'error', 'message' => 'Invalid expense category', 'http_code' => 400]);
+    exit;
+}
+
 if ($amount <= 0) {
     echo json_encode(['status' => 'error', 'message' => 'Amount must be greater than zero', 'http_code' => 400]);
     exit;
 }
 
-$stmt = $conn->prepare("INSERT INTO vehicle_expenses (vehicle_id, expense_date, expense_type, description, amount) VALUES (?, ?, ?, ?, ?)");
-$stmt->bind_param("ssssd", $vehicle_id, $expense_date, $expense_type, $description, $amount);
+$stmt = $conn->prepare("INSERT INTO vehicle_expenses (vehicle_id, expense_date, expense_type, expense_category, description, amount) VALUES (?, ?, ?, ?, ?, ?)");
+$stmt->bind_param("sssssd", $vehicle_id, $expense_date, $expense_type, $expense_category, $description, $amount);
 
 if ($stmt->execute()) {
     echo json_encode(['status' => 'success', 'message' => 'Expense added successfully', 'http_code' => 200]);

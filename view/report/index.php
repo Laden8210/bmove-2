@@ -676,6 +676,53 @@ $conn->close();
                                         <i class="bi bi-plus-circle me-1"></i> Add Expense
                                     </button>
                                 </div>
+
+                                <?php
+                                // Separate expenses by category
+                                $adminExpenses = array_filter($expenseData, fn($e) => ($e['expense_category'] ?? 'admin') === 'admin');
+                                $driverExpenses = array_filter($expenseData, fn($e) => ($e['expense_category'] ?? 'admin') === 'driver');
+                                $totalAdminExpenses = array_sum(array_column($adminExpenses, 'amount'));
+                                $totalDriverExpenses = array_sum(array_column($driverExpenses, 'amount'));
+                                ?>
+
+                                <!-- Admin Expenses -->
+                                <h6 class="fw-bold text-primary mb-2"><i class="bi bi-building me-1"></i> Admin Expenses</h6>
+                                <div class="table-responsive mb-4">
+                                    <table class="table table-hover table-bordered">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th>Date</th>
+                                                <th>Expense Type</th>
+                                                <th>Description</th>
+                                                <th class="text-end">Amount (₱)</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <?php foreach ($adminExpenses as $exp): ?>
+                                                <tr>
+                                                    <td><?= date('M d, Y', strtotime($exp['expense_date'])) ?></td>
+                                                    <td><span class="badge bg-secondary"><?= htmlspecialchars($exp['expense_type']) ?></span></td>
+                                                    <td><?= htmlspecialchars($exp['description']) ?></td>
+                                                    <td class="text-end text-danger">-<?= number_format($exp['amount'], 2) ?></td>
+                                                </tr>
+                                            <?php endforeach; ?>
+                                            <?php if (empty($adminExpenses)): ?>
+                                                <tr>
+                                                    <td colspan="4" class="text-center text-muted py-3">No admin expenses recorded for this period.</td>
+                                                </tr>
+                                            <?php endif; ?>
+                                        </tbody>
+                                        <tfoot class="table-group-divider">
+                                            <tr>
+                                                <th colspan="3" class="text-end">Total Admin Expenses:</th>
+                                                <th class="text-end text-danger">-<?= number_format($totalAdminExpenses, 2) ?></th>
+                                            </tr>
+                                        </tfoot>
+                                    </table>
+                                </div>
+
+                                <!-- Driver Expenses -->
+                                <h6 class="fw-bold text-warning mb-2"><i class="bi bi-person-fill me-1"></i> Driver Expenses</h6>
                                 <div class="table-responsive mb-5">
                                     <table class="table table-hover table-bordered">
                                         <thead class="table-light">
@@ -687,28 +734,24 @@ $conn->close();
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            <?php foreach ($expenseData as $exp): ?>
+                                            <?php foreach ($driverExpenses as $exp): ?>
                                                 <tr>
                                                     <td><?= date('M d, Y', strtotime($exp['expense_date'])) ?></td>
-                                                    <td><span
-                                                            class="badge bg-secondary"><?= htmlspecialchars($exp['expense_type']) ?></span>
-                                                    </td>
+                                                    <td><span class="badge bg-secondary"><?= htmlspecialchars($exp['expense_type']) ?></span></td>
                                                     <td><?= htmlspecialchars($exp['description']) ?></td>
                                                     <td class="text-end text-danger">-<?= number_format($exp['amount'], 2) ?></td>
                                                 </tr>
                                             <?php endforeach; ?>
-                                            <?php if (empty($expenseData)): ?>
+                                            <?php if (empty($driverExpenses)): ?>
                                                 <tr>
-                                                    <td colspan="4" class="text-center text-muted py-3">No expenses recorded for
-                                                        this period.</td>
+                                                    <td colspan="4" class="text-center text-muted py-3">No driver expenses recorded for this period.</td>
                                                 </tr>
                                             <?php endif; ?>
                                         </tbody>
                                         <tfoot class="table-group-divider">
                                             <tr>
-                                                <th colspan="3" class="text-end">Total Expenses:</th>
-                                                <th class="text-end text-danger fs-5">-<?= number_format($totalExpenses, 2) ?>
-                                                </th>
+                                                <th colspan="3" class="text-end">Total Driver Expenses:</th>
+                                                <th class="text-end text-danger">-<?= number_format($totalDriverExpenses, 2) ?></th>
                                             </tr>
                                         </tfoot>
                                     </table>
@@ -834,6 +877,13 @@ $conn->close();
                         <option value="Fuel">Fuel (Gasoline / Diesel)</option>
                         <option value="Maintenance">Maintenance (Oil, Parts, Vulcanizing)</option>
                         <option value="Miscellaneous">Miscellaneous (Toll, Parking, Car wash)</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label for="expense_category" class="form-label">Expense Category</label>
+                    <select class="form-select" id="expense_category" name="expense_category" required>
+                        <option value="admin">Admin Expense</option>
+                        <option value="driver">Driver Expense</option>
                     </select>
                 </div>
                 <div class="mb-3">

@@ -65,6 +65,40 @@ if ($result->num_rows === 0) {
 
 $status = $request_body['status'];
 
+// Enforce 20-minute preparation buffer when confirming a booking
+if ($status === 'confirmed') {
+    $bookingData = $conn->prepare("SELECT vehicle_id, date, time FROM bookings WHERE booking_id = ?");
+    $bookingData->bind_param("s", $booking_id);
+    $bookingData->execute();
+    $bk = $bookingData->get_result()->fetch_assoc();
+    $bookingData->close();
+
+    if ($bk) {
+        $gap_minutes = 20;
+        $requested_datetime = $bk['date'] . ' ' . $bk['time'] . ':00';
+        $gap_stmt = $conn->prepare("
+            SELECT booking_id FROM bookings 
+            WHERE vehicle_id = ? 
+            AND date = ? 
+            AND booking_id != ?
+            AND status NOT IN ('completed', 'cancelled')
+            AND ABS(TIMESTAMPDIFF(MINUTE, CONCAT(date, ' ', time, ':00'), ?)) < ?
+        ");
+        $gap_stmt->bind_param("ssssi", $bk['vehicle_id'], $bk['date'], $booking_id, $requested_datetime, $gap_minutes);
+        $gap_stmt->execute();
+        $gap_result = $gap_stmt->get_result();
+        if ($gap_result->num_rows > 0) {
+            echo json_encode([
+                'status' => 'error',
+                'message' => "Cannot confirm: another booking on this vehicle is within the {$gap_minutes}-minute preparation buffer. Please reassign the vehicle or adjust the schedule.",
+                'http_code' => 409
+            ]);
+            exit;
+        }
+        $gap_stmt->close();
+    }
+}
+
 
 if ($status === 'cancelled' || $status === 'completed') {
     $stmt = $conn->prepare("SELECT * FROM bookings WHERE booking_id = ? AND status = ?");

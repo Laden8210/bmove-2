@@ -14,8 +14,16 @@
 
         <div class="card overflow-auto">
           <div class="card-body">
+            <?php
+            // Helper function to mask contact numbers - show only last 3 digits
+            function maskContactNumber($number) {
+                $number = trim($number);
+                if (strlen($number) <= 3) return $number;
+                return str_repeat('*', strlen($number) - 3) . substr($number, -3);
+            }
+            ?>
             <h5 class="card-title">User Management</h5>
-            <p>Below is a list of all registered users in the system.</p>
+            <p>Below is a list of all active registered users in the system.</p>
             <button class="btn btn-success mb-3" data-bs-toggle="modal" data-bs-target="#addUserModal">
               Add User
             </button>
@@ -37,8 +45,8 @@
                 <tbody>
                   <?php
 
-
-                  $sql = "SELECT uid, username, full_name, contact_number, email_address, account_type, account_status, created_at FROM users where account_type != 'customer' and is_deleted = 0 ORDER BY created_at DESC";
+                  // Active users only (exclude Archived)
+                  $sql = "SELECT uid, username, full_name, contact_number, email_address, account_type, account_status, created_at FROM users WHERE account_type != 'customer' AND is_deleted = 0 AND (account_status IS NULL OR account_status != 'Archived') ORDER BY created_at DESC";
                   $result = $conn->query($sql);
 
                   if ($result && $result->num_rows > 0) {
@@ -59,14 +67,12 @@
                         $statusClass = 'bg-success';
                       elseif ($statusText === 'Inactive')
                         $statusClass = 'bg-warning text-dark';
-                      elseif ($statusText === 'Archived')
-                        $statusClass = 'bg-danger';
 
                       echo '<tr>';
 
                       echo '<td>' . htmlspecialchars($row['username']) . '</td>';
                       echo '<td>' . htmlspecialchars($row['full_name']) . '</td>';
-                      echo '<td>' . htmlspecialchars($row['contact_number']) . '</td>';
+                      echo '<td>' . htmlspecialchars(maskContactNumber($row['contact_number'])) . '</td>';
                       echo '<td>' . htmlspecialchars($row['email_address']) . '</td>';
                       echo '<td><span class="badge ' . $badgeClass . '">' . ucfirst(htmlspecialchars($row['account_type'])) . '</span></td>';
                       echo '<td><span class="badge ' . $statusClass . '">' . htmlspecialchars($statusText) . '</span></td>';
@@ -98,6 +104,60 @@
                     }
                   } else {
                     echo '<tr><td colspan="8" class="text-center">No users found.</td></tr>';
+                  }
+                  ?>
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Archived Accounts Section -->
+            <hr class="my-4">
+            <h5 class="card-title"><i class="bi bi-archive me-2"></i>Archived Accounts</h5>
+            <p class="text-muted">These accounts have been archived and are hidden from the active list.</p>
+            <div class="table-responsive">
+              <table class="table datatable" id="archived-table">
+                <thead>
+                  <tr>
+                    <th>Username</th>
+                    <th>Full Name</th>
+                    <th data-sortable="false">Contact Number</th>
+                    <th data-sortable="false">Email Address</th>
+                    <th>Account Type</th>
+                    <th>Status</th>
+                    <th data-type="date" data-format="YYYY/DD/MM">Date Added</th>
+                    <th data-sortable="false">Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <?php
+                  $archived_sql = "SELECT uid, username, full_name, contact_number, email_address, account_type, account_status, created_at FROM users WHERE account_type != 'customer' AND is_deleted = 0 AND account_status = 'Archived' ORDER BY created_at DESC";
+                  $archived_result = $conn->query($archived_sql);
+
+                  if ($archived_result && $archived_result->num_rows > 0) {
+                    while ($row = $archived_result->fetch_assoc()) {
+                      $badgeClass = 'bg-secondary';
+                      if ($row['account_type'] === 'admin')
+                        $badgeClass = 'bg-primary';
+                      elseif ($row['account_type'] === 'driver')
+                        $badgeClass = 'bg-warning text-dark';
+
+                      echo '<tr>';
+                      echo '<td>' . htmlspecialchars($row['username']) . '</td>';
+                      echo '<td>' . htmlspecialchars($row['full_name']) . '</td>';
+                      echo '<td>' . htmlspecialchars(maskContactNumber($row['contact_number'])) . '</td>';
+                      echo '<td>' . htmlspecialchars($row['email_address']) . '</td>';
+                      echo '<td><span class="badge ' . $badgeClass . '">' . ucfirst(htmlspecialchars($row['account_type'])) . '</span></td>';
+                      echo '<td><span class="badge bg-danger">Archived</span></td>';
+                      echo '<td>' . date('Y/m/d', strtotime($row['created_at'])) . '</td>';
+                      echo '<td class="d-flex gap-1 justify-content-center">
+                                <button class="btn btn-sm btn-success" title="Restore" onclick="changeUserStatus(\'' . $row['uid'] . '\', \'Active\')">
+                                  <i class="bi bi-arrow-counterclockwise"></i> Restore
+                                </button>
+                              </td>';
+                      echo '</tr>';
+                    }
+                  } else {
+                    echo '<tr><td colspan="8" class="text-center text-muted">No archived accounts.</td></tr>';
                   }
                   ?>
                 </tbody>

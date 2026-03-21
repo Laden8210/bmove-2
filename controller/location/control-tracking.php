@@ -1,5 +1,6 @@
 <?php
 require_once '../../config/config.php';
+require_once '../../function/NotificationService.php';
 
 header('Content-Type: application/json; charset=utf-8');
 header('Access-Control-Allow-Origin: *');
@@ -186,6 +187,25 @@ try {
     $session_stmt->bind_param("ss", $driver_id, $booking_id);
     $session_stmt->execute();
     $session = $session_stmt->get_result()->fetch_assoc();
+    
+    // Send SMS notification to customer for start/stop tracking
+    if (in_array($action, ['start', 'stop'])) {
+        $customer_stmt = $conn->prepare("SELECT u.phone, u.full_name FROM users u WHERE u.uid = ?");
+        $customer_stmt->bind_param("s", $booking['user_id']);
+        $customer_stmt->execute();
+        $customer = $customer_stmt->get_result()->fetch_assoc();
+        $customer_stmt->close();
+
+        if ($customer && !empty($customer['phone'])) {
+            $notifier = new NotificationService();
+            if ($action === 'start') {
+                $smsMsg = "BMove Express: Your driver has started GPS tracking for Booking #{$booking_id}. You can now track your driver in real-time from your dashboard.";
+            } else {
+                $smsMsg = "BMove Express: GPS tracking has ended for Booking #{$booking_id}. Thank you for using BMove Express!";
+            }
+            $notifier->sendSMS($customer['phone'], $smsMsg);
+        }
+    }
     
     // Return success response
     echo json_encode([
