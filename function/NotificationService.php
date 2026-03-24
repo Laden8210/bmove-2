@@ -37,7 +37,12 @@ class NotificationService
                 throw new Exception('Invalid phone number format');
             }
 
-            $url = "https://api.textbee.dev/api/v1/gateway/devices/{$this->smsDeviceId}/send-sms";
+            // Format PHP local mobile to international code for TextBee
+            if (strpos($phoneNumber, '09') === 0 && strlen($phoneNumber) === 11) {
+                $phoneNumber = '+63' . substr($phoneNumber, 1);
+            }
+
+            $url = "https://api.textbee.dev/api/v1/gateway/devices/{$this->smsDeviceId}/sendSMS";
             $data = [
                 'recipients' => [$phoneNumber],
                 'message' => $message
@@ -102,8 +107,8 @@ class NotificationService
                 throw new Exception('Invalid email address: ' . $toEmail);
             }
 
-            // Connect to SMTP server
-            $socket = fsockopen($this->emailHost, $this->emailPort, $errno, $errstr, 30);
+            // Connect to SMTP server; supress warnings so JSON responses aren't broken
+            $socket = @fsockopen($this->emailHost, $this->emailPort, $errno, $errstr, 30);
             if (!$socket) {
                 throw new Exception("Failed to connect to SMTP server: $errstr ($errno)");
             }

@@ -1,6 +1,7 @@
 <?php
 date_default_timezone_set('Asia/Manila');
 
+require_once __DIR__ . '/../vendor/autoload.php';
 
 use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\Exception;

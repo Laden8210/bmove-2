@@ -120,6 +120,7 @@ $pageTitle = "Track Driver - BMove";
                             <div class="card-body">
                                 <p class="mb-1"><strong>Latitude:</strong> <span id="driver-lat">-</span></p>
                                 <p class="mb-1"><strong>Longitude:</strong> <span id="driver-lng">-</span></p>
+                                <p class="mb-1"><strong>Address:</strong> <span id="driver-address">-</span></p>
                                 <p class="mb-1"><strong>Accuracy:</strong> <span id="location-accuracy">-</span></p>
                                 <p class="mb-0"><strong>Last Update:</strong> <span id="last-location-update">-</span></p>
                             </div>

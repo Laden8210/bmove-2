@@ -286,12 +286,30 @@ class DriverLocationTracker {
         const accuracyElement = document.getElementById('current-accuracy');
         const speedElement = document.getElementById('current-speed');
         const timestampElement = document.getElementById('last-update');
+        const addressElement = document.getElementById('current-address');
         
         if (latElement) latElement.textContent = location.latitude.toFixed(6);
         if (lngElement) lngElement.textContent = location.longitude.toFixed(6);
         if (accuracyElement) accuracyElement.textContent = location.accuracy ? location.accuracy.toFixed(2) + 'm' : 'N/A';
         if (speedElement) speedElement.textContent = location.speed ? (location.speed * 3.6).toFixed(2) + ' km/h' : 'N/A';
         if (timestampElement) timestampElement.textContent = new Date().toLocaleTimeString();
+
+        if (addressElement) {
+            const url = `${window.location.origin}/bmove-v2/controller/geocoding-proxy.php?action=reverse&lat=${location.latitude}&lng=${location.longitude}`;
+            fetch(url)
+                .then(res => res.json())
+                .then(data => {
+                    if (data && data.display_name) {
+                        addressElement.textContent = data.display_name;
+                    } else {
+                        addressElement.textContent = 'Address not found';
+                    }
+                })
+                .catch(err => {
+                    console.error('Reverse geocoding error:', err);
+                    addressElement.textContent = 'Error fetching address';
+                });
+        }
     }
     
     getBookingId() {

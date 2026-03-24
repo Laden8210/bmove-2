@@ -68,13 +68,10 @@
                         <hr class="flex-grow-1">
                     </div>
 
-                    <!-- Social Login Buttons -->
+                    <!-- Google Sign-In Button -->
                     <div class="d-grid gap-2">
                         <button type="button" class="btn btn-outline-danger btn-sm d-flex align-items-center justify-content-center" id="googleLoginBtn">
                             <i class="fab fa-google me-2"></i> Sign in with Google
-                        </button>
-                        <button type="button" class="btn btn-outline-primary btn-sm d-flex align-items-center justify-content-center" id="facebookLoginBtn">
-                            <i class="fab fa-facebook-f me-2"></i> Sign in with Facebook
                         </button>
                     </div>
                 </div>
@@ -135,6 +132,8 @@
     });
 
     function showError(message) {
+        // Remove any existing error alerts first
+        document.querySelectorAll('.card-body .alert-danger').forEach(el => el.remove());
         const alertDiv = document.createElement('div');
         alertDiv.className = 'alert alert-danger alert-dismissible fade show';
         alertDiv.innerHTML = `
@@ -145,30 +144,79 @@
     }
 
     // --- Google Sign-In ---
-    // Load Google Identity Services library
     (function() {
+        const googleClientId = '<?= getenv("GOOGLE_CLIENT_ID") ?: "" ?>';
+        if (!googleClientId) {
+            document.getElementById('googleLoginBtn').style.display = 'none';
+            return;
+        }
+
+        // Load Google Identity Services library
         const script = document.createElement('script');
         script.src = 'https://accounts.google.com/gsi/client';
         script.async = true;
         script.defer = true;
         script.onload = function() {
-            const googleClientId = '<?= getenv("GOOGLE_CLIENT_ID") ?: "" ?>';
-            if (!googleClientId) {
-                document.getElementById('googleLoginBtn').style.display = 'none';
-                return;
-            }
             google.accounts.id.initialize({
                 client_id: googleClientId,
-                callback: handleGoogleCredential
+                callback: handleGoogleCredential,
+                auto_select: false,
+                cancel_on_tap_outside: true
             });
+
+            // Attach click handler — renders a hidden Google button and clicks it,
+            // or uses the One Tap prompt as fallback
             document.getElementById('googleLoginBtn').addEventListener('click', function() {
-                google.accounts.id.prompt();
+                // Create a hidden container for Google's rendered button
+                let hiddenDiv = document.getElementById('g_id_signin_hidden');
+                if (!hiddenDiv) {
+                    hiddenDiv = document.createElement('div');
+                    hiddenDiv.id = 'g_id_signin_hidden';
+                    hiddenDiv.style.position = 'absolute';
+                    hiddenDiv.style.opacity = '0';
+                    hiddenDiv.style.pointerEvents = 'none';
+                    hiddenDiv.style.width = '0';
+                    hiddenDiv.style.height = '0';
+                    hiddenDiv.style.overflow = 'hidden';
+                    document.body.appendChild(hiddenDiv);
+
+                    google.accounts.id.renderButton(hiddenDiv, {
+                        type: 'standard',
+                        size: 'large'
+                    });
+                }
+
+                // Try clicking the rendered Google button
+                const innerBtn = hiddenDiv.querySelector('[role="button"]') ||
+                                 hiddenDiv.querySelector('div[tabindex="0"]') ||
+                                 hiddenDiv.querySelector('iframe');
+
+                if (innerBtn) {
+                    innerBtn.click();
+                } else {
+                    // Fallback: use the One Tap prompt
+                    google.accounts.id.prompt((notification) => {
+                        if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
+                            showError('Google Sign-In popup was blocked. Please allow popups for this site or try again.');
+                        }
+                    });
+                }
             });
+        };
+        script.onerror = function() {
+            document.getElementById('googleLoginBtn').style.display = 'none';
+            console.error('Failed to load Google Identity Services library');
         };
         document.head.appendChild(script);
     })();
 
     async function handleGoogleCredential(response) {
+        // Show a loading state
+        const btn = document.getElementById('googleLoginBtn');
+        const originalText = btn.innerHTML;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Signing in...';
+        btn.disabled = true;
+
         try {
             const res = await fetch('controller/auth/social-login.php', {
                 method: 'POST',
@@ -187,63 +235,17 @@
                     sessionStorage.setItem('otp_masked_contact', data.masked_contact);
                 }
                 window.location.href = 'verify-otp';
+            } else if (data.status === 'complete_profile') {
+                window.location.href = 'complete-profile';
             } else {
                 showError(data.message || 'Google login failed.');
+                btn.innerHTML = originalText;
+                btn.disabled = false;
             }
         } catch (err) {
             showError('Network error during Google login.');
-        }
-    }
-
-    // --- Facebook Login ---
-    (function() {
-        const fbAppId = '<?= getenv("FACEBOOK_APP_ID") ?: "" ?>';
-        if (!fbAppId) {
-            document.getElementById('facebookLoginBtn').style.display = 'none';
-            return;
-        }
-        window.fbAsyncInit = function() {
-            FB.init({ appId: fbAppId, cookie: true, xfbml: true, version: 'v18.0' });
-        };
-        const script = document.createElement('script');
-        script.src = 'https://connect.facebook.net/en_US/sdk.js';
-        script.async = true;
-        script.defer = true;
-        document.head.appendChild(script);
-
-        document.getElementById('facebookLoginBtn').addEventListener('click', function() {
-            FB.login(function(response) {
-                if (response.authResponse) {
-                    handleFacebookLogin(response.authResponse.accessToken);
-                }
-            }, { scope: 'email,public_profile' });
-        });
-    })();
-
-    async function handleFacebookLogin(accessToken) {
-        try {
-            const res = await fetch('controller/auth/social-login.php', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    provider: 'facebook',
-                    access_token: accessToken,
-                    csrf_token: document.querySelector('[name="csrf_token"]').value
-                })
-            });
-            const data = await res.json();
-            if (data.status === 'success') {
-                window.location.href = 'dashboard';
-            } else if (data.status === 'otp_required') {
-                if (data.masked_contact) {
-                    sessionStorage.setItem('otp_masked_contact', data.masked_contact);
-                }
-                window.location.href = 'verify-otp';
-            } else {
-                showError(data.message || 'Facebook login failed.');
-            }
-        } catch (err) {
-            showError('Network error during Facebook login.');
+            btn.innerHTML = originalText;
+            btn.disabled = false;
         }
     }
 </script>

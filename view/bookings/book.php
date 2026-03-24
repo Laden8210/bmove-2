@@ -600,6 +600,7 @@ $selectedVehicle['totalcapacitykg'] = $selectedVehicle['totalcapacitykg'] ?? 0;
                                 <input type="text" id="pickup" name="pickup_location"
                                     class="form-control form-control-lg" placeholder="Enter complete pickup address (e.g., 123 Main St, Brgy. Centro, Balanga, Bataan)" required maxlength="500">
                                 <div class="invalid-feedback">Please select a pickup location</div>
+                                <small class="text-muted d-block mt-1"><i class="bi bi-lightbulb"></i> Tip: Select a broad area or pin on the map first, then manually add your specific house and street details.</small>
 
                                 <div class="form-check current-location-checkbox">
                                     <input class="form-check-input" type="checkbox" id="useCurrentLocation">
@@ -615,6 +616,7 @@ $selectedVehicle['totalcapacitykg'] = $selectedVehicle['totalcapacitykg'] ?? 0;
                                 <input type="text" id="dropoff" name="dropoff_location"
                                     class="form-control form-control-lg" placeholder="Enter complete drop-off address (e.g., 456 Rizal Ave, Brgy. Poblacion, Dinalupihan, Bataan)" required maxlength="500">
                                 <div class="invalid-feedback">Please select a drop-off location</div>
+                                <small class="text-muted d-block mt-1"><i class="bi bi-lightbulb"></i> Tip: Select a broad area or pin on the map first, then manually add your specific house and street details.</small>
                             </div>
 
                             <div class="row g-3 mb-4">
@@ -766,15 +768,20 @@ $selectedVehicle['totalcapacitykg'] = $selectedVehicle['totalcapacitykg'] ?? 0;
             const today = new Date().toISOString().split('T')[0];
             const options = timeSelect.querySelectorAll('option[data-time]');
 
+            // Preparation time gap in minutes - drivers need at least 1 hour to prepare
+            const PREP_TIME_GAP = 60;
+
             if (selectedDate === today) {
                 const now = new Date();
                 const currentMinutes = now.getHours() * 60 + now.getMinutes();
+                // Add prep time gap: slots must be at least PREP_TIME_GAP minutes in the future
+                const minimumSlotMinutes = currentMinutes + PREP_TIME_GAP;
                 let disabledCount = 0;
 
                 options.forEach(opt => {
                     const [h, m] = opt.dataset.time.split(':').map(Number);
                     const slotMinutes = h * 60 + m;
-                    if (slotMinutes <= currentMinutes) {
+                    if (slotMinutes <= minimumSlotMinutes) {
                         opt.disabled = true;
                         opt.classList.add('text-muted');
                         disabledCount++;
@@ -789,7 +796,7 @@ $selectedVehicle['totalcapacitykg'] = $selectedVehicle['totalcapacitykg'] ?? 0;
                 });
 
                 if (disabledCount > 0) {
-                    timeHint.textContent = 'Past time slots for today are disabled.';
+                    timeHint.textContent = 'Past time slots and the next 1 hour are disabled to allow driver preparation time.';
                 } else {
                     timeHint.textContent = '';
                 }
@@ -1578,7 +1585,21 @@ $selectedVehicle['totalcapacitykg'] = $selectedVehicle['totalcapacitykg'] ?? 0;
                 .then(response => response.json())
                 .then(data => {
                     if (data && data.display_name) {
-                        document.getElementById(type).value = data.display_name;
+                        const inputEl = document.getElementById(type);
+                        // Only overwrite if input is empty, contains "Fetching", or starts with the previous geocoded result
+                        // Actually, to ensure they can enter custom addresses, we will append it if empty, 
+                        // or just set it if it's currently empty or has the default placeholder text.
+                        if (!inputEl.value || inputEl.value === "Fetching current location...") {
+                            inputEl.value = data.display_name;
+                        } else {
+                            // If they already typed something, don't overwrite it!
+                            // This allows them to type "House 42, San Jose" and then pin the map
+                            // without losing their custom address.
+                            console.log("Preserved custom address: " + inputEl.value);
+                            
+                            // Optionally, if the text is very short (just a broad search), we could overwrite
+                            // but safer to preserve their manual entry.
+                        }
                     }
                 })
                 .catch(error => console.error('Reverse geocoding error:', error));

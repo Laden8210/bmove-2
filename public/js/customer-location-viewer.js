@@ -163,12 +163,30 @@ class CustomerLocationViewer {
         const accuracyElement = document.getElementById('location-accuracy');
         const speedElement = document.getElementById('driver-speed');
         const lastUpdateElement = document.getElementById('last-location-update');
+        const addressElement = document.getElementById('driver-address');
         
         if (latElement) latElement.textContent = location.latitude.toFixed(6);
         if (lngElement) lngElement.textContent = location.longitude.toFixed(6);
         if (accuracyElement) accuracyElement.textContent = location.accuracy ? location.accuracy.toFixed(2) + 'm' : 'N/A';
         if (speedElement) speedElement.textContent = location.speed ? (location.speed * 3.6).toFixed(2) + ' km/h' : 'N/A';
         if (lastUpdateElement) lastUpdateElement.textContent = new Date(location.timestamp).toLocaleString();
+        
+        if (addressElement && location.latitude && location.longitude) {
+            const url = `${window.location.origin}/bmove-v2/controller/geocoding-proxy.php?action=reverse&lat=${location.latitude}&lng=${location.longitude}`;
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    if (data && data.display_name) {
+                        addressElement.textContent = data.display_name;
+                    } else if (data && data.error) {
+                        addressElement.textContent = `Error: ${data.error}`;
+                    }
+                })
+                .catch(err => {
+                    console.error('Reverse geocoding error:', err);
+                    addressElement.textContent = 'Failed to load address';
+                });
+        }
         
         // Update status indicator
         const statusIndicator = document.getElementById('location-status');

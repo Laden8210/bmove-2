@@ -94,6 +94,7 @@ try {
 
         // Fallback: also send OTP via email
         if (!$smsResult['success']) {
+            $mailer = new Mailer();
             $mailer->sendOtp($user['email_address'], $otp);
         }
 

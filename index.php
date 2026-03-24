@@ -38,6 +38,7 @@ try {
         'driver-dashboard' => ['file' => 'view/driver/dashboard.php', 'title' => 'Driver Dashboard', 'auth_required' => true, 'layout' => 'view/layouts/app.php'],
         'track-driver' => ['file' => 'view/customer/track-driver.php', 'title' => 'Track Driver', 'auth_required' => true, 'layout' => 'view/layouts/app.php'],
         'my-profile' => ['file' => 'view/customer/profile.php', 'title' => 'My Profile', 'auth_required' => true, 'layout' => 'view/layouts/app.php'],
+        'complete-profile' => ['file' => 'view/auth/complete-profile.php', 'title' => 'Complete Your Profile', 'auth_required' => false, 'layout' => 'view/layouts/app.php'],
         'report' => ['file' => 'view/report/index.php', 'title' => 'Report', 'auth_required' => true, 'layout' => 'view/layouts/app.php'],
 
         // PayMongo Payment Routes

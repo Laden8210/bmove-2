@@ -88,9 +88,7 @@ try {
         exit;
     }
     
-    // Start transaction
-    $conn->begin_transaction();
-    
+    // Update tracking session without explicit transaction to avoid deadlocks on rapid pings
     // Insert current location
     $location_stmt = $conn->prepare("
         INSERT INTO driver_locations (driver_id, booking_id, latitude, longitude, accuracy, speed, heading, altitude)
@@ -131,9 +129,7 @@ try {
     $history_stmt->bind_param("ssdddddd", $driver_id, $booking_id, $latitude, $longitude, $accuracy, $speed, $heading, $altitude);
     $history_stmt->execute();
     
-    // Commit transaction
-    $conn->commit();
-    
+
     // Return success response
     echo json_encode([
         'status' => 'success',
@@ -148,9 +144,7 @@ try {
     ]);
     
 } catch (Exception $e) {
-    // Rollback transaction on error
-    $conn->rollback();
-    
+
     error_log("Location update error: " . $e->getMessage());
     
     http_response_code(500);

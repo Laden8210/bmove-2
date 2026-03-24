@@ -69,43 +69,7 @@ if ($booking['status'] === 'cancelled') {
     exit;
 }
 
-// check if there is a payment for the booking
-
-$stmt = $conn->prepare("SELECT * FROM payments WHERE booking_id = ?");
-
-$stmt->bind_param("s", $booking_id);
-$stmt->execute();
-
-$result = $stmt->get_result();
-
-if ($result->num_rows === 0) {
-    echo json_encode(['status' => 'error', 'message' => 'Payment not found for this booking', 'http_code' => 404]);
-    exit;
-}
-
-// check if the payment is already completed
-
-$payment = $result->fetch_assoc();
-
-if ($payment['payment_status'] === 'completed') {
-    echo json_encode(['status' => 'error', 'message' => 'Payment already completed', 'http_code' => 400]);
-    exit;
-}
-
-// check if the payment is already cancelled
-
-if ($payment['payment_status'] === 'cancelled') {
-    echo json_encode(['status' => 'error', 'message' => 'Payment already cancelled', 'http_code' => 400]);
-    exit;
-}
-
-// pending payment
-
-if ($payment['payment_status'] === 'pending') {
-    echo json_encode(['status' => 'error', 'message' => 'Payment is pending, please confirm the payment first', 'http_code' => 400]);
-    exit;
-}
-
+// payment checking removed to allow COD and pre-paid bookings to start properly
 
 $status = 'in_transit';
 
@@ -115,8 +79,15 @@ $stmt->bind_param("ss", $status, $booking_id);
 
 
 if ($stmt->execute()) {
+    // Update vehicle status
+    if (isset($booking['vehicle_id'])) {
+        $veh_stmt = $conn->prepare("UPDATE vehicles SET status = 'in use' WHERE vehicleid = ?");
+        $veh_stmt->bind_param("s", $booking['vehicle_id']);
+        $veh_stmt->execute();
+    }
+
     // Send SMS notification to customer
-    $customer_stmt = $conn->prepare("SELECT u.phone, u.full_name, u.email FROM users u WHERE u.uid = ?");
+    $customer_stmt = $conn->prepare("SELECT u.contact_number, u.full_name, u.email_address FROM users u WHERE u.uid = ?");
     $customer_stmt->bind_param("s", $booking['user_id']);
     $customer_stmt->execute();
     $customer = $customer_stmt->get_result()->fetch_assoc();
@@ -128,13 +99,13 @@ if ($stmt->execute()) {
             . "Pickup: {$booking['pickup_location']}. "
             . "Track your driver in real-time from your dashboard.";
 
-        if (!empty($customer['phone'])) {
-            $notification->sendSMS($customer['phone'], $smsMessage);
+        if (!empty($customer['contact_number'])) {
+            $notification->sendSMS($customer['contact_number'], $smsMessage);
         }
 
-        if (!empty($customer['email'])) {
+        if (!empty($customer['email_address'])) {
             $notification->sendEmail(
-                $customer['email'],
+                $customer['email_address'],
                 "Trip Started - Booking #{$booking_id}",
                 "<h3>Your trip has started!</h3>"
                 . "<p>Dear {$customer['full_name']},</p>"

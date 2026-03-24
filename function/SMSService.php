@@ -27,6 +27,10 @@ class SMSService
     {
         $url = $this->baseUrl . '/' . $this->deviceId . '/sendSMS';
 
+        if (strpos($phoneNumber, '09') === 0 && strlen($phoneNumber) === 11) {
+            $phoneNumber = '+63' . substr($phoneNumber, 1);
+        }
+
         $payload = json_encode([
             'recipients' => [$phoneNumber],
             'message' => $message

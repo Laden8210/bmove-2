@@ -355,8 +355,8 @@ if ($booking) {
     exit;
 }
 
-// Enforce mandatory 20-minute gap between bookings for driver preparation
-$gap_minutes = 20;
+// Enforce mandatory 120-minute gap between bookings for driver preparation
+$gap_minutes = 120;
 $requested_datetime = $date . ' ' . $time . ':00';
 $gap_stmt = $conn->prepare("
     SELECT booking_id, date, time FROM bookings 

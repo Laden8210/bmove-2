@@ -81,9 +81,14 @@ try {
             ");
             $check_stmt->bind_param("ss", $driver_id, $booking_id);
             $check_stmt->execute();
+            $check_result = $check_stmt->get_result();
             
-            if ($check_stmt->get_result()->num_rows > 0) {
-                throw new Exception('Tracking session already active');
+            if ($check_result->num_rows > 0) {
+                // Tracking session is already active. This happens if the page was reloaded.
+                // We should return success so the frontend JS resumes watchPosition()
+                $session_id = $check_result->fetch_assoc()['id'];
+                $message = 'GPS tracking resumed (already active)';
+                break;
             }
             
             // Create new tracking session
@@ -99,16 +104,23 @@ try {
             
             $session_id = $conn->insert_id;
             
-            // Enable GPS tracking for booking
+            // Enable GPS tracking for booking and mark in transit
             $enable_stmt = $conn->prepare("
                 UPDATE bookings 
-                SET driver_location_enabled = TRUE, tracking_session_id = ?
+                SET driver_location_enabled = TRUE, tracking_session_id = ?, status = 'in_transit'
                 WHERE booking_id = ?
             ");
             $enable_stmt->bind_param("is", $session_id, $booking_id);
             
             if (!$enable_stmt->execute()) {
                 throw new Exception('Failed to enable GPS tracking');
+            }
+
+            // Update vehicle status to 'in use'
+            if (isset($booking['vehicle_id'])) {
+                $veh_stmt = $conn->prepare("UPDATE vehicles SET status = 'in use' WHERE vehicleid = ?");
+                $veh_stmt->bind_param("s", $booking['vehicle_id']);
+                $veh_stmt->execute();
             }
             
             $message = 'GPS tracking started successfully';
@@ -127,16 +139,23 @@ try {
                 throw new Exception('Failed to stop tracking session');
             }
             
-            // Disable GPS tracking for booking
+            // Disable GPS tracking for booking and mark completed
             $disable_stmt = $conn->prepare("
                 UPDATE bookings 
-                SET driver_location_enabled = FALSE, tracking_session_id = NULL
+                SET driver_location_enabled = FALSE, tracking_session_id = NULL, status = 'completed'
                 WHERE booking_id = ?
             ");
             $disable_stmt->bind_param("s", $booking_id);
             
             if (!$disable_stmt->execute()) {
                 throw new Exception('Failed to disable GPS tracking');
+            }
+
+            // Update vehicle status to 'available'
+            if (isset($booking['vehicle_id'])) {
+                $veh_stmt = $conn->prepare("UPDATE vehicles SET status = 'available' WHERE vehicleid = ?");
+                $veh_stmt->bind_param("s", $booking['vehicle_id']);
+                $veh_stmt->execute();
             }
             
             $message = 'GPS tracking stopped successfully';
@@ -190,20 +209,20 @@ try {
     
     // Send SMS notification to customer for start/stop tracking
     if (in_array($action, ['start', 'stop'])) {
-        $customer_stmt = $conn->prepare("SELECT u.phone, u.full_name FROM users u WHERE u.uid = ?");
+        $customer_stmt = $conn->prepare("SELECT u.contact_number, u.full_name FROM users u WHERE u.uid = ?");
         $customer_stmt->bind_param("s", $booking['user_id']);
         $customer_stmt->execute();
         $customer = $customer_stmt->get_result()->fetch_assoc();
         $customer_stmt->close();
 
-        if ($customer && !empty($customer['phone'])) {
+        if ($customer && !empty($customer['contact_number'])) {
             $notifier = new NotificationService();
             if ($action === 'start') {
                 $smsMsg = "BMove Express: Your driver has started GPS tracking for Booking #{$booking_id}. You can now track your driver in real-time from your dashboard.";
             } else {
                 $smsMsg = "BMove Express: GPS tracking has ended for Booking #{$booking_id}. Thank you for using BMove Express!";
             }
-            $notifier->sendSMS($customer['phone'], $smsMsg);
+            $notifier->sendSMS($customer['contact_number'], $smsMsg);
         }
     }
     

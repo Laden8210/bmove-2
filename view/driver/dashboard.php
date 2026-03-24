@@ -241,16 +241,16 @@ $bookings = $result->fetch_all(MYSQLI_ASSOC);
                             <div class="row">
                                 <div class="col-md-6">
                                     <div class="d-grid gap-2">
-                                        <button id="start-tracking-btn" class="btn btn-success">
+                                        <button type="button" id="start-tracking-btn" class="btn btn-success">
                                             <i class="bi bi-play-fill me-2"></i>Start Tracking
                                         </button>
-                                        <button id="stop-tracking-btn" class="btn btn-danger" style="display: none;">
+                                        <button type="button" id="stop-tracking-btn" class="btn btn-danger" style="display: none;">
                                             <i class="bi bi-stop-fill me-2"></i>Stop Tracking
                                         </button>
-                                        <button id="pause-tracking-btn" class="btn btn-warning" style="display: none;">
+                                        <button type="button" id="pause-tracking-btn" class="btn btn-warning" style="display: none;">
                                             <i class="bi bi-pause-fill me-2"></i>Pause Tracking
                                         </button>
-                                        <button id="resume-tracking-btn" class="btn btn-info" style="display: none;">
+                                        <button type="button" id="resume-tracking-btn" class="btn btn-info" style="display: none;">
                                             <i class="bi bi-play-fill me-2"></i>Resume Tracking
                                         </button>
                                     </div>
@@ -260,6 +260,7 @@ $bookings = $result->fetch_all(MYSQLI_ASSOC);
                                         <p class="mb-1"><strong>Status:</strong> <span id="tracking-status" class="badge bg-secondary">Stopped</span></p>
                                         <p class="mb-1"><strong>Latitude:</strong> <span id="current-lat">-</span></p>
                                         <p class="mb-1"><strong>Longitude:</strong> <span id="current-lng">-</span></p>
+                                        <p class="mb-1"><strong>Address:</strong> <span id="current-address">-</span></p>
                                         <p class="mb-1"><strong>Accuracy:</strong> <span id="current-accuracy">-</span></p>
                                         <p class="mb-1"><strong>Speed:</strong> <span id="current-speed">-</span></p>
                                         <p class="mb-0"><strong>Last Update:</strong> <span id="last-update">-</span></p>
@@ -495,10 +496,7 @@ $bookings = $result->fetch_all(MYSQLI_ASSOC);
     };
 
 
-    $('#update-user').on('submit', function(e) {
-        e.preventDefault();
-        updateRequest.send();
-    });
+    // Removed undefined update-user form submission
 
 
     function getPaymentStatusColor(status) {

@@ -63,7 +63,7 @@ if ($otpGenerator->validateOTP($inputOtp)) {
         'message' => 'Verification successful.',
         'user' => [
             'uid' => $pending['user_id'],
-            'email' => $pending['email'],
+            'email' => $pending['email'] ?? null,
             'role' => $pending['role']
         ],
         'http_code' => 200

@@ -2,7 +2,7 @@
 $current_uid = $_SESSION['auth']['user_id'] ?? null;
 
 // Fetch user details
-$stmt = $conn->prepare("SELECT full_name, username, email, phone, account_status, created_at FROM users WHERE uid = ? AND is_deleted = 0");
+$stmt = $conn->prepare("SELECT full_name, username, email_address, contact_number, account_status, created_at FROM users WHERE uid = ? AND is_deleted = 0");
 $stmt->bind_param("s", $current_uid);
 $stmt->execute();
 $result = $stmt->get_result();
@@ -49,11 +49,11 @@ $stmt->close();
                         </div>
                         <div class="col-md-6 mb-3">
                             <label class="text-muted small">Email</label>
-                            <p class="fw-semibold mb-0"><?= htmlspecialchars($profile['email']) ?></p>
+                            <p class="fw-semibold mb-0"><?= htmlspecialchars($profile['email_address']) ?></p>
                         </div>
                         <div class="col-md-6 mb-3">
                             <label class="text-muted small">Phone</label>
-                            <p class="fw-semibold mb-0"><?= htmlspecialchars($profile['phone'] ?: 'Not set') ?></p>
+                            <p class="fw-semibold mb-0"><?= htmlspecialchars($profile['contact_number'] ?: 'Not set') ?></p>
                         </div>
                         <div class="col-md-6 mb-3">
                             <label class="text-muted small">Account Status</label>
