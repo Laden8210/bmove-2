@@ -598,9 +598,13 @@ $selectedVehicle['totalcapacitykg'] = $selectedVehicle['totalcapacitykg'] ?? 0;
                                 <label for="pickup" class="form-label"><i class="bi bi-geo-alt me-1"></i>Pickup
                                     Location</label>
                                 <input type="text" id="pickup" name="pickup_location"
-                                    class="form-control form-control-lg" placeholder="Enter complete pickup address (e.g., 123 Main St, Brgy. Centro, Balanga, Bataan)" required maxlength="500">
+                                    class="form-control form-control-lg"
+                                    placeholder="Enter complete pickup address (e.g., 123 Main St, Brgy. Centro, Balanga, Bataan)"
+                                    required maxlength="500">
                                 <div class="invalid-feedback">Please select a pickup location</div>
-                                <small class="text-muted d-block mt-1"><i class="bi bi-lightbulb"></i> Tip: Select a broad area or pin on the map first, then manually add your specific house and street details.</small>
+                                <small class="text-muted d-block mt-1"><i class="bi bi-lightbulb"></i> Tip: Select a
+                                    broad area or pin on the map first, then manually add your specific house and street
+                                    details.</small>
 
                                 <div class="form-check current-location-checkbox">
                                     <input class="form-check-input" type="checkbox" id="useCurrentLocation">
@@ -614,9 +618,13 @@ $selectedVehicle['totalcapacitykg'] = $selectedVehicle['totalcapacitykg'] ?? 0;
                                 <label for="dropoff" class="form-label"><i class="bi bi-geo-alt-fill me-1"></i>Drop-off
                                     Location</label>
                                 <input type="text" id="dropoff" name="dropoff_location"
-                                    class="form-control form-control-lg" placeholder="Enter complete drop-off address (e.g., 456 Rizal Ave, Brgy. Poblacion, Dinalupihan, Bataan)" required maxlength="500">
+                                    class="form-control form-control-lg"
+                                    placeholder="Enter complete drop-off address (e.g., 456 Rizal Ave, Brgy. Poblacion, Dinalupihan, Bataan)"
+                                    required maxlength="500">
                                 <div class="invalid-feedback">Please select a drop-off location</div>
-                                <small class="text-muted d-block mt-1"><i class="bi bi-lightbulb"></i> Tip: Select a broad area or pin on the map first, then manually add your specific house and street details.</small>
+                                <small class="text-muted d-block mt-1"><i class="bi bi-lightbulb"></i> Tip: Select a
+                                    broad area or pin on the map first, then manually add your specific house and street
+                                    details.</small>
                             </div>
 
                             <div class="row g-3 mb-4">
@@ -704,24 +712,35 @@ $selectedVehicle['totalcapacitykg'] = $selectedVehicle['totalcapacitykg'] ?? 0;
                             <!-- QR Code Payment Info -->
                             <div id="qr_payment_info" class="alert alert-info mt-3 d-none">
                                 <strong><i class="bi bi-qr-code me-1"></i>QR Code Payment:</strong>
-                                <p class="mb-2 mt-2">After confirming your booking, a QR code will be generated for you to scan and pay using your preferred e-wallet or banking app.</p>
+                                <p class="mb-2 mt-2">After confirming your booking, a QR code will be generated for you
+                                    to scan and pay using your preferred e-wallet or banking app.</p>
                                 <ul class="mb-0">
                                     <li>Supports GCash, Maya, bank apps, and any QR Ph-compatible app.</li>
-                                    <li>Payment must be completed within <strong>30 minutes</strong> of booking confirmation.</li>
+                                    <li>Payment must be completed within <strong>30 minutes</strong> of booking
+                                        confirmation.</li>
                                     <li>Your booking will be confirmed once payment is verified.</li>
                                 </ul>
                             </div>
 
                             <div id="cod_policy" class="alert alert-warning mt-3 d-none">
-                                <strong><i class="bi bi-exclamation-triangle me-1"></i>Cash on Delivery (COD) Policy:</strong>
-                                <p class="mb-2 mt-2">For bookings using Cash on Delivery, please read and agree to the following:</p>
+                                <strong><i class="bi bi-exclamation-triangle me-1"></i>Cash on Delivery (COD)
+                                    Policy:</strong>
+                                <p class="mb-2 mt-2">For bookings using Cash on Delivery, please read and agree to the
+                                    following:</p>
                                 <ul class="mb-2">
                                     <li>Prepare the <strong>exact amount</strong> upon delivery or rental handover.</li>
                                     <li>COD is only available within approved service areas in Bataan.</li>
-                                    <li>If unable to pay the full amount on delivery, you must notify BMoveXpress <strong>at least 2 hours before</strong> the scheduled pickup time.</li>
-                                    <li>Failure to pay on delivery will result in a <strong>COD surcharge of ₱150</strong> and may lead to account restrictions.</li>
-                                    <li>Repeated COD failures (3 or more) will result in <strong>permanent suspension of COD privileges</strong>.</li>
-                                    <li>In unexpected situations where COD cannot be fulfilled, the driver will attempt to contact you. If unreachable within 15 minutes, the booking will be <strong>marked as failed</strong>.</li>
+                                    <li>If unable to pay the full amount on delivery, you must notify BMoveXpress
+                                        <strong>at least 2 hours before</strong> the scheduled pickup time.
+                                    </li>
+                                    <li>Failure to pay on delivery will result in a <strong>COD surcharge of
+                                            ₱150</strong> and may lead to account restrictions.</li>
+                                    <li>Repeated COD failures (3 or more) will result in <strong>permanent suspension of
+                                            COD privileges</strong>.</li>
+                                    <li>In unexpected situations where COD cannot be fulfilled, the driver will attempt
+                                        to contact you. If unreachable within 15 minutes, the booking will be
+                                        <strong>marked as failed</strong>.
+                                    </li>
                                     <li>For amounts exceeding ₱5,000, online payment is strongly recommended.</li>
                                 </ul>
                                 <div class="form-check">
@@ -793,13 +812,13 @@ $selectedVehicle['totalcapacitykg'] = $selectedVehicle['totalcapacitykg'] ?? 0;
             const now = new Date();
             const currentMinutes = now.getHours() * 60 + now.getMinutes();
             const minimumSlotMinutes = (selectedDate === today) ? currentMinutes + PREP_TIME_GAP : -1;
-            
+
             let disabledCount = 0;
 
             options.forEach(opt => {
                 const [h, m] = opt.dataset.time.split(':').map(Number);
                 const slotMinutes = h * 60 + m;
-                
+
                 let isDisabled = false;
 
                 // 1. Check if it's in the past or within prep gap
@@ -835,7 +854,7 @@ $selectedVehicle['totalcapacitykg'] = $selectedVehicle['totalcapacitykg'] ?? 0;
         }
 
         // Run on page load if date is pre-filled
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', function () {
             if (document.getElementById('date').value) {
                 updateTimeSlots();
             }
@@ -1097,7 +1116,7 @@ $selectedVehicle['totalcapacitykg'] = $selectedVehicle['totalcapacitykg'] ?? 0;
         const geocoder = L.Control.Geocoder.nominatim();
 
 
-        const OPENCAGE_API_KEY = '5246506e7d3141cbaaab53d198f6de47';
+        const OPENCAGE_API_KEY = 'd2846a0112db429cb44ca132b4ff9614';
         let map, pickupMarker, dropoffMarker, routingControl;
 
 
@@ -1461,12 +1480,12 @@ $selectedVehicle['totalcapacitykg'] = $selectedVehicle['totalcapacitykg'] ?? 0;
             setupAutocomplete('dropoff');
 
             // Auto-geocode when user finishes typing and leaves the input
-            document.getElementById('pickup').addEventListener('change', function() {
+            document.getElementById('pickup').addEventListener('change', function () {
                 if (this.value.trim().length > 5 && !document.getElementById('pickup_lat').value) {
                     geocodeAddress(this.value.trim(), 'pickup');
                 }
             });
-            document.getElementById('dropoff').addEventListener('change', function() {
+            document.getElementById('dropoff').addEventListener('change', function () {
                 if (this.value.trim().length > 5 && !document.getElementById('dropoff_lat').value) {
                     geocodeAddress(this.value.trim(), 'dropoff');
                 }
@@ -1633,7 +1652,7 @@ $selectedVehicle['totalcapacitykg'] = $selectedVehicle['totalcapacitykg'] ?? 0;
                             // This allows them to type "House 42, San Jose" and then pin the map
                             // without losing their custom address.
                             console.log("Preserved custom address: " + inputEl.value);
-                            
+
                             // Optionally, if the text is very short (just a broad search), we could overwrite
                             // but safer to preserve their manual entry.
                         }

@@ -301,7 +301,8 @@ class DriverLocationTracker {
         if (timestampElement) timestampElement.textContent = new Date().toLocaleTimeString();
 
         if (addressElement) {
-            const url = `${window.location.origin}/bmove-v2/controller/geocoding-proxy.php?action=reverse&lat=${location.latitude}&lng=${location.longitude}`;
+            const url = `${window.location.origin}/controller/geocoding-proxy.php?action=reverse&lat=${location.latitude}&lng=${location.longitude}`;
+            // const url = `${window.location.origin}/bmove-v2/controller/geocoding-proxy.php?action=reverse&lat=${location.latitude}&lng=${location.longitude}`;
             fetch(url)
                 .then(res => res.json())
                 .then(data => {
