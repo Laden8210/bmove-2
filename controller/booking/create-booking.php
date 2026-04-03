@@ -2,6 +2,7 @@
 
 require_once '../../config/config.php';
 require_once '../../function/UIDGenerator.php';
+require_once '../../function/NotificationService.php';
 
 // Set session configuration BEFORE starting session
 ini_set('session.cookie_httponly', 1);
@@ -457,6 +458,39 @@ if ($stmt->execute()) {
     if ($stmt->execute()) {
         // Payment record created successfully
         $stmt->close();
+        
+        // Get user details for PayMongo and Notifications
+        $user_stmt = $conn->prepare("SELECT full_name, email_address, contact_number FROM users WHERE uid = ?");
+        $user_stmt->bind_param("s", $user_id);
+        $user_stmt->execute();
+        $user = $user_stmt->get_result()->fetch_assoc();
+        $user_stmt->close();
+
+        // Send booking placed notifications
+        if ($user) {
+            $notification = new NotificationService();
+            $payNote = ($payment_method === 'paymongo' || $payment_method === 'qr_code') ? " Please complete your payment to finalize." : " You have chosen to pay via Cash.";
+            $smsMessage = "BMove Express: Your booking #{$booking_id} has been placed successfully.{$payNote}";
+            
+            if (!empty($user['contact_number'])) {
+                $notification->sendSMS($user['contact_number'], $smsMessage);
+            }
+
+            if (!empty($user['email_address'])) {
+                $notification->sendEmail(
+                    $user['email_address'],
+                    "Booking Placed - #{$booking_id}",
+                    "<h3>Your Booking is Placed</h3>"
+                    . "<p>Dear {$user['full_name']},</p>"
+                    . "<p>Your booking <strong>#{$booking_id}</strong> for <strong>{$date} {$time}</strong> has been received by our system.</p>"
+                    . "<p><strong>Pickup:</strong> {$pickup_location}</p>"
+                    . "<p><strong>Dropoff:</strong> {$dropoff_location}</p>"
+                    . "<p>{$payNote}</p>"
+                    . "<p>Thank you for choosing BMove Express!</p>",
+                    $user['full_name']
+                );
+            }
+        }
 
         // If PayMongo payment method, create checkout session
         if ($payment_method === 'paymongo' || $payment_method === 'qr_code') {
@@ -464,12 +498,6 @@ if ($stmt->execute()) {
 
             try {
                 $paymongo = new PayMongoService();
-
-                // Get user details
-                $user_stmt = $conn->prepare("SELECT full_name, email_address, contact_number FROM users WHERE uid = ?");
-                $user_stmt->bind_param("s", $user_id);
-                $user_stmt->execute();
-                $user = $user_stmt->get_result()->fetch_assoc();
 
                 // Prepare booking data
                 $bookingData = [

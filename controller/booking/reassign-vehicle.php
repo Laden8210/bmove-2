@@ -1,6 +1,7 @@
 <?php
 
 require_once '../../config/config.php';
+require_once '../../function/NotificationService.php';
 
 ini_set('session.cookie_httponly', 1);
 ini_set('session.cookie_secure', $_SERVER['HTTP_HOST'] !== 'localhost');
@@ -151,6 +152,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $stmt->bind_param("ss", $new_vehicle_id, $booking_id);
 
     if ($stmt->execute()) {
+        // Send SMS & Email notification to customer
+        $customer_stmt = $conn->prepare("SELECT u.contact_number, u.full_name, u.email_address FROM users u JOIN bookings b ON u.uid = b.user_id WHERE b.booking_id = ?");
+        $customer_stmt->bind_param("s", $booking_id);
+        $customer_stmt->execute();
+        $customer = $customer_stmt->get_result()->fetch_assoc();
+        $customer_stmt->close();
+
+        if ($customer) {
+            $notification = new NotificationService();
+            
+            $smsMessage = "BMove Express: Your vehicle for Booking #{$booking_id} has been reassigned to {$newVehicle['name']}. You can review this change on your dashboard.";
+
+            if (!empty($customer['contact_number'])) {
+                $notification->sendSMS($customer['contact_number'], $smsMessage);
+            }
+
+            if (!empty($customer['email_address'])) {
+                $emailBody = "<h3>Booking Vehicle Reassigned</h3>"
+                    . "<p>Dear {$customer['full_name']},</p>"
+                    . "<p>Your vehicle for booking <strong>#{$booking_id}</strong> has been updated to provide better logistics coverage.</p>"
+                    . "<p><strong>New Assigned Vehicle:</strong> {$newVehicle['name']} ({$newVehicle['type']})</p>"
+                    . "<p>You can view the latest driver details via your dashboard!</p>"
+                    . "<p>Thank you for choosing BMove Express!</p>";
+
+                $notification->sendEmail(
+                    $customer['email_address'],
+                    "Vehicle Reassigned - #{$booking_id}",
+                    $emailBody,
+                    $customer['full_name']
+                );
+            }
+        }
+
         echo json_encode(['status' => 'success', 'message' => 'Vehicle reassigned successfully', 'http_code' => 200]);
     } else {
         echo json_encode(['status' => 'error', 'message' => 'Failed to reassign vehicle', 'http_code' => 500]);
