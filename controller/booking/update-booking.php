@@ -2,6 +2,7 @@
 
 require_once '../../config/config.php';
 require_once '../../function/UIDGenerator.php';
+require_once '../../function/NotificationService.php';
 
 ini_set('session.cookie_httponly', 1);
 ini_set('session.cookie_secure', $_SERVER['HTTP_HOST'] !== 'localhost');
@@ -123,6 +124,50 @@ if ($status === 'cancelled') {
 }
 
 if ($stmt->execute()) {
+    // Send SMS & Email notification to customer
+    $customer_stmt = $conn->prepare("SELECT u.contact_number, u.full_name, u.email_address FROM users u JOIN bookings b ON u.uid = b.user_id WHERE b.booking_id = ?");
+    $customer_stmt->bind_param("s", $booking_id);
+    $customer_stmt->execute();
+    $customer = $customer_stmt->get_result()->fetch_assoc();
+    $customer_stmt->close();
+
+    if ($customer) {
+        $notification = new NotificationService();
+        $statusStr = ucfirst($status);
+        
+        $smsMessage = "BMove Express: Your booking #{$booking_id} has been {$status}.";
+        if ($status === 'cancelled') {
+            $smsMessage .= " If you have questions, please contact our support.";
+        } else if ($status === 'confirmed') {
+            $smsMessage .= " We will notify you once your driver is on the way.";
+        }
+
+        if (!empty($customer['contact_number'])) {
+            $notification->sendSMS($customer['contact_number'], $smsMessage);
+        }
+
+        if (!empty($customer['email_address'])) {
+            $emailBody = "<h3>Booking Status Update</h3>"
+                . "<p>Dear {$customer['full_name']},</p>"
+                . "<p>Your booking <strong>#{$booking_id}</strong> is now: <strong>{$statusStr}</strong>.</p>";
+            
+            if ($status === 'cancelled') {
+                $emailBody .= "<p>We're sorry this booking was " . ($remarks ? "cancelled (Reason: {$remarks})" : "cancelled") . ". Feel free to book another vehicle at any time.</p>";
+            } else if ($status === 'confirmed') {
+                $emailBody .= "<p>Your vehicle is locked in. We will send you another update once your driver starts the trip!</p>";
+            }
+
+            $emailBody .= "<p>Thank you for choosing BMove Express!</p>";
+
+            $notification->sendEmail(
+                $customer['email_address'],
+                "Booking Update: {$statusStr} - #{$booking_id}",
+                $emailBody,
+                $customer['full_name']
+            );
+        }
+    }
+
     echo json_encode(['status' => 'success', 'message' => 'Booking updated successfully', 'http_code' => 200]);
 } else {
     echo json_encode(['status' => 'error', 'message' => 'Failed to update booking', 'http_code' => 500]);
