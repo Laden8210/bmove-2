@@ -81,14 +81,8 @@ try {
         exit;
     }
     
-    // Check if GPS tracking is enabled for this booking
-    if (!$booking['driver_location_enabled']) {
-        http_response_code(403);
-        echo json_encode(['status' => 'error', 'message' => 'GPS tracking not enabled for this booking']);
-        exit;
-    }
-    
-    // Update tracking session without explicit transaction to avoid deadlocks on rapid pings
+    // Removed check for driver_location_enabled to ensure tracking always works
+
     // Insert current location
     $location_stmt = $conn->prepare("
         INSERT INTO driver_locations (driver_id, booking_id, latitude, longitude, accuracy, speed, heading, altitude)

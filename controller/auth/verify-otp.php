@@ -58,6 +58,15 @@ if ($otpGenerator->validateOTP($inputOtp)) {
     unset($_SESSION['pending_otp']);
     $otpGenerator->resetOTP();
 
+    // Mark log as verified
+    try {
+        $stmtLog = $conn->prepare("UPDATE otp_logs SET status = 'verified' WHERE user_id = ? AND otp_code = ? AND status = 'unverified' ORDER BY created_at DESC LIMIT 1");
+        $stmtLog->bind_param("ss", $pending['user_id'], $inputOtp);
+        $stmtLog->execute();
+    } catch (Exception $e) {
+        error_log("Failed to update OTP verified status: " . $e->getMessage());
+    }
+
     echo json_encode([
         'status' => 'success',
         'message' => 'Verification successful.',

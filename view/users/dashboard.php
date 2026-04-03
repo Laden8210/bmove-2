@@ -389,21 +389,65 @@ $maxRevenue = max($chartData) > 0 ? max($chartData) : 10000; // Avoid division b
 
         <!-- Charts and Data Section -->
         <div class="row mb-4">
-            <!-- Revenue Chart -->
+            <!-- Recent Bookings (Moved to Top Left) -->
             <div class="col-lg-8 mb-4">
-                <div class="card">
+                <div class="card recent-bookings h-100">
                     <div class="card-body">
-                        <div class="chart-header">
-                            <h5 class="card-title mb-0">Weekly Revenue Overview for <?= $selectedYear ?></h5>
-                            <div class="btn-group">
-                                <button id="toggleRevenueBtn"
-                                    class="btn btn-sm btn-outline-primary active">Revenue</button>
-                                <button id="toggleBookingsBtn"
-                                    class="btn btn-sm btn-outline-secondary">Bookings</button>
-                            </div>
+                        <div class="d-flex justify-content-between align-items-center mb-4">
+                            <h5 class="card-title">Recent Bookings (Live)</h5>
+                            <a href="#" class="btn btn-sm btn-outline-primary">View All</a>
                         </div>
-                        <div class="chart-container">
-                            <canvas id="revenueChart"></canvas>
+
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Customer</th>
+                                        <th>Vehicle</th>
+                                        <th>Date & Time</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="recent-bookings-body">
+                                    <?php foreach (array_slice($recentBookings, 0, 4) as $booking):
+                                        // Get initials for avatar
+                                        $names = explode(' ', $booking['full_name']);
+                                        $initials = '';
+                                        if (count($names)) {
+                                            $initials = strtoupper(substr($names[0], 0, 1)) .
+                                                (isset($names[1]) ? strtoupper(substr($names[1], 0, 1)) : '');
+                                        }
+
+                                        // Map status to classes
+                                        $statusClass = '';
+                                        switch ($booking['status']) {
+                                            case 'pending': $statusClass = 'pending'; break;
+                                            case 'confirmed': $statusClass = 'confirmed'; break;
+                                            case 'in_progress': $statusClass = 'in_progress'; break;
+                                            case 'completed': $statusClass = 'completed'; break;
+                                            case 'cancelled': $statusClass = 'cancelled'; break;
+                                        }
+                                        ?>
+                                        <tr class="<?= $booking['status'] == 'in_progress' ? 'table-primary' : '' ?>">
+                                            <td>
+                                                <div class="d-flex align-items-center">
+                                                    <div class="customer-avatar me-2" style="width: 30px; height: 30px; font-size: 0.8rem;">
+                                                        <?= $initials ?>
+                                                    </div>
+                                                    <div><?= $booking['full_name'] ?></div>
+                                                </div>
+                                            </td>
+                                            <td><?= $booking['vehicle_name'] ?? 'No Vehicle' ?></td>
+                                            <td><?= date('M d', strtotime($booking['date'])) . ' ' . date('h:i A', strtotime($booking['time'])) ?></td>
+                                            <td>
+                                                <span class="status-badge bg-<?= $statusClass ?>">
+                                                    <?= ucwords(str_replace('_', ' ', $booking['status'])) ?>
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                </tbody>
+                            </table>
                         </div>
                     </div>
                 </div>
@@ -471,85 +515,22 @@ $maxRevenue = max($chartData) > 0 ? max($chartData) : 10000; // Avoid division b
             </div>
         </div>
 
-        <!-- Recent Bookings -->
+        <!-- Revenue Chart Section -->
         <div class="row">
             <div class="col-12">
-                <div class="card recent-bookings">
+                <div class="card">
                     <div class="card-body">
-                        <div class="d-flex justify-content-between align-items-center mb-4">
-                            <h5 class="card-title">Recent Bookings</h5>
-                            <a href="#" class="btn btn-sm btn-outline-primary">View All Bookings</a>
+                        <div class="chart-header">
+                            <h5 class="card-title mb-0">Weekly Revenue Overview for <?= $selectedYear ?></h5>
+                            <div class="btn-group">
+                                <button id="toggleRevenueBtn"
+                                    class="btn btn-sm btn-outline-primary active">Revenue</button>
+                                <button id="toggleBookingsBtn"
+                                    class="btn btn-sm btn-outline-secondary">Bookings</button>
+                            </div>
                         </div>
-
-                        <div class="table-responsive">
-                            <table class="table table-hover">
-                                <thead>
-                                    <tr>
-                                        <th>Customer</th>
-                                        <th>Vehicle</th>
-                                        <th>Date & Time</th>
-                                        <th>Distance</th>
-                                        <th>Revenue</th>
-                                        <th>Status</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="recent-bookings-body">
-                                    <?php foreach ($recentBookings as $booking):
-                                        // Get initials for avatar
-                                        $names = explode(' ', $booking['full_name']);
-                                        $initials = '';
-                                        if (count($names)) {
-                                            $initials = strtoupper(substr($names[0], 0, 1)) .
-                                                (isset($names[1]) ? strtoupper(substr($names[1], 0, 1)) : '');
-                                        }
-
-                                        // Map status to classes
-                                        $statusClass = '';
-                                        switch ($booking['status']) {
-                                            case 'pending':
-                                                $statusClass = 'pending';
-                                                break;
-                                            case 'confirmed':
-                                                $statusClass = 'confirmed';
-                                                break;
-                                            case 'in_progress':
-                                                $statusClass = 'in_progress';
-                                                break;
-                                            case 'completed':
-                                                $statusClass = 'completed';
-                                                break;
-                                            case 'cancelled':
-                                                $statusClass = 'cancelled';
-                                                break;
-                                        }
-
-                                        // Use real booking data
-                                        $distance = htmlspecialchars($booking['total_distance'] ?? '0') . ' km';
-                                        $bookingRevenue = '₱' . number_format($booking['total_price'] ?? 0, 2);
-                                        ?>
-                                        <tr class="<?= $booking['status'] == 'in_progress' ? 'table-primary' : '' ?>">
-                                            <td>
-                                                <div class="d-flex align-items-center">
-                                                    <div class="customer-avatar me-2">
-                                                        <?= $initials ?>
-                                                    </div>
-                                                    <div><?= $booking['full_name'] ?></div>
-                                                </div>
-                                            </td>
-                                            <td><?= $booking['vehicle_name'] ?? 'No Vehicle' ?></td>
-                                            <td><?= date('M d, Y', strtotime($booking['date'])) . ' ' . $booking['time'] ?>
-                                            </td>
-                                            <td><?= $distance ?></td>
-                                            <td class="fw-bold"><?= $bookingRevenue ?></td>
-                                            <td>
-                                                <span class="status-badge bg-<?= $statusClass ?>">
-                                                    <?= ucwords(str_replace('_', ' ', $booking['status'])) ?>
-                                                </span>
-                                            </td>
-                                        </tr>
-                                    <?php endforeach; ?>
-                                </tbody>
-                            </table>
+                        <div class="chart-container">
+                            <canvas id="revenueChart"></canvas>
                         </div>
                     </div>
                 </div>
@@ -706,17 +687,14 @@ $maxRevenue = max($chartData) > 0 ? max($chartData) : 10000; // Avoid division b
                         const names = b.full_name.split(' ');
                         const initials = (names[0]?.[0] || '').toUpperCase() + (names[1]?.[0] || '').toUpperCase();
                         const statusClass = b.status || '';
-                        const dateStr = new Date(b.date).toLocaleDateString('en-US', {month: 'short', day: 'numeric', year: 'numeric'});
-                        const distance = (b.total_distance || 0) + ' km';
-                        const revenue = '₱' + Number(b.total_price || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                        const dateStr = new Date(b.date).toLocaleDateString('en-US', {month: 'short', day: 'numeric'});
+                        const timeStr = new Date('1970-01-01T' + b.time + 'Z').toLocaleTimeString('en-US', {hour: 'numeric', minute: '2-digit'});
                         const isActive = b.status === 'in_progress' ? 'table-primary' : '';
                         const statusLabel = b.status.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase());
                         html += `<tr class="${isActive}">
-                            <td><div class="d-flex align-items-center"><div class="customer-avatar me-2">${initials}</div><div>${b.full_name}</div></div></td>
+                            <td><div class="d-flex align-items-center"><div class="customer-avatar me-2" style="width: 30px; height: 30px; font-size: 0.8rem;">${initials}</div><div>${b.full_name}</div></div></td>
                             <td>${b.vehicle_name || 'No Vehicle'}</td>
-                            <td>${dateStr} ${b.time}</td>
-                            <td>${distance}</td>
-                            <td class="fw-bold">${revenue}</td>
+                            <td>${dateStr} ${timeStr}</td>
                             <td><span class="status-badge bg-${statusClass}">${statusLabel}</span></td>
                         </tr>`;
                     });

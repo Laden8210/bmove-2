@@ -1,0 +1,9 @@
+CREATE TABLE IF NOT EXISTS `otp_logs` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `user_id` CHAR(36) NOT NULL,
+  `contact_target` VARCHAR(100) NOT NULL,
+  `method` ENUM('sms', 'email') NOT NULL,
+  `otp_code` VARCHAR(10) NOT NULL,
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (`user_id`) REFERENCES `users`(`uid`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

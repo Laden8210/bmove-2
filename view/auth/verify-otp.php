@@ -44,11 +44,15 @@
                         </div>
                     </form>
 
-                    <div class="text-muted small">
-                        Didn't receive the code?
-                        <button type="button" id="resendBtn" class="btn btn-link btn-sm p-0 text-decoration-none"
-                            disabled>
-                            Resend OTP (<span id="resendTimer">60</span>s)
+                    <div class="text-muted small mb-2">
+                        Didn't receive the code? Wait <span id="resendTimer">60</span>s
+                    </div>
+                    <div class="d-flex justify-content-center gap-2" id="resendControls">
+                        <button type="button" id="resendSmsBtn" class="btn btn-outline-primary btn-sm" disabled>
+                            <i class="fas fa-sms"></i> Resend via SMS
+                        </button>
+                        <button type="button" id="resendEmailBtn" class="btn btn-outline-secondary btn-sm" disabled>
+                            <i class="fas fa-envelope"></i> Resend via Email
                         </button>
                     </div>
 
@@ -107,7 +111,8 @@
         const verifyBtn = document.getElementById('verifyBtn');
         const verifyText = document.getElementById('verifyText');
         const verifySpinner = document.getElementById('verifySpinner');
-        const resendBtn = document.getElementById('resendBtn');
+        const resendSmsBtn = document.getElementById('resendSmsBtn');
+        const resendEmailBtn = document.getElementById('resendEmailBtn');
         const resendTimerEl = document.getElementById('resendTimer');
         const otpAlert = document.getElementById('otpAlert');
         const maskedEmailEl = document.getElementById('maskedEmail');
@@ -226,7 +231,9 @@
 
         function startResendTimer() {
             resendCooldown = 60;
-            resendBtn.disabled = true;
+            resendSmsBtn.disabled = true;
+            resendEmailBtn.disabled = true;
+            resendTimerEl.parentElement.style.display = 'block';
             resendTimerEl.textContent = resendCooldown;
 
             resendInterval = setInterval(() => {
@@ -234,30 +241,37 @@
                 resendTimerEl.textContent = resendCooldown;
                 if (resendCooldown <= 0) {
                     clearInterval(resendInterval);
-                    resendBtn.disabled = false;
-                    resendBtn.innerHTML = 'Resend OTP';
+                    resendSmsBtn.disabled = false;
+                    resendEmailBtn.disabled = false;
+                    resendTimerEl.parentElement.style.display = 'none';
+                    resendSmsBtn.innerHTML = '<i class="fas fa-sms"></i> Resend via SMS';
+                    resendEmailBtn.innerHTML = '<i class="fas fa-envelope"></i> Resend via Email';
                 }
             }, 1000);
         }
 
         startResendTimer();
 
-        resendBtn.addEventListener('click', async () => {
-            resendBtn.disabled = true;
-            resendBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Sending...';
+        async function handleResend(method) {
+            const btn = method === 'sms' ? resendSmsBtn : resendEmailBtn;
+            const origHtml = btn.innerHTML;
+            
+            resendSmsBtn.disabled = true;
+            resendEmailBtn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Sending...';
             hideAlert();
 
             try {
                 const response = await fetch('controller/auth/resend-otp.php', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({})
+                    body: JSON.stringify({ method: method })
                 });
 
                 const data = await response.json();
 
                 if (data.status === 'success') {
-                    showAlert('A new code has been sent to your email.', 'info');
+                    showAlert(data.message, 'info');
                     if (data.masked_contact) {
                         maskedEmailEl.textContent = data.masked_contact;
                     }
@@ -267,14 +281,19 @@
                     startResendTimer();
                 } else {
                     showAlert(data.message || 'Failed to resend OTP.', 'danger');
-                    resendBtn.disabled = false;
-                    resendBtn.innerHTML = 'Resend OTP';
+                    resendSmsBtn.disabled = false;
+                    resendEmailBtn.disabled = false;
+                    btn.innerHTML = origHtml;
                 }
             } catch (error) {
                 showAlert('Network error. Please try again.', 'danger');
-                resendBtn.disabled = false;
-                resendBtn.innerHTML = 'Resend OTP';
+                resendSmsBtn.disabled = false;
+                resendEmailBtn.disabled = false;
+                btn.innerHTML = origHtml;
             }
-        });
+        }
+
+        resendSmsBtn.addEventListener('click', () => handleResend('sms'));
+        resendEmailBtn.addEventListener('click', () => handleResend('email'));
     })();
 </script>

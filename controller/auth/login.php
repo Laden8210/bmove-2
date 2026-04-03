@@ -85,6 +85,7 @@ try {
 
         // Send OTP via SMS
         $smsResult = ['success' => false];
+        $otpMethodUsed = 'sms';
         try {
             $smsService = new SMSService();
             $smsResult = $smsService->sendOTP($user['contact_number'], $otp);
@@ -92,10 +93,21 @@ try {
             error_log("SMS OTP send failed: " . $smsEx->getMessage());
         }
 
-        // Fallback: also send OTP via email
+        // Fallback: also send OTP via email if SMS fails
         if (!$smsResult['success']) {
             $mailer = new Mailer();
             $mailer->sendOtp($user['email_address'], $otp);
+            $otpMethodUsed = 'email';
+        }
+
+        // Log the OTP sent to database
+        try {
+            $stmtLog = $conn->prepare("INSERT INTO otp_logs (user_id, contact_target, method, otp_code, expires_at) VALUES (?, ?, ?, ?, DATE_ADD(NOW(), INTERVAL 5 MINUTE))");
+            $contactTarget = ($otpMethodUsed === 'email') ? $user['email_address'] : $user['contact_number'];
+            $stmtLog->bind_param("ssss", $user['uid'], $contactTarget, $otpMethodUsed, $otp);
+            $stmtLog->execute();
+        } catch (Exception $e) {
+            error_log("Failed to log OTP: " . $e->getMessage());
         }
 
         // Mask the contact number for display (e.g., 09***...***89)

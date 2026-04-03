@@ -759,53 +759,77 @@ $selectedVehicle['totalcapacitykg'] = $selectedVehicle['totalcapacitykg'] ?? 0;
     </div>
 
     <script>
-        // Disable past time slots when selected date is today
-        function updateTimeSlots() {
+        // Disable past time slots and slots that overlap with existing bookings
+        async function updateTimeSlots() {
             const dateInput = document.getElementById('date');
             const timeSelect = document.getElementById('time');
             const timeHint = document.getElementById('time-hint');
+            const vehicleId = document.querySelector('input[name="vehicle_id"]').value;
             const selectedDate = dateInput.value;
             const today = new Date().toISOString().split('T')[0];
             const options = timeSelect.querySelectorAll('option[data-time]');
 
-            // Preparation time gap in minutes - drivers need at least 1 hour to prepare
+            if (!selectedDate) return;
+
+            // Preparation time gap from current time
             const PREP_TIME_GAP = 60;
+            // Gap between different bookings (e.g., 60 mins before and 60 mins after)
+            const BOOKING_GAP = 60;
 
-            if (selectedDate === today) {
-                const now = new Date();
-                const currentMinutes = now.getHours() * 60 + now.getMinutes();
-                // Add prep time gap: slots must be at least PREP_TIME_GAP minutes in the future
-                const minimumSlotMinutes = currentMinutes + PREP_TIME_GAP;
-                let disabledCount = 0;
+            let bookedSlots = [];
+            try {
+                const response = await fetch(`controller/booking/get-booked-slots.php?vehicle_id=${vehicleId}&date=${selectedDate}`);
+                const result = await response.json();
+                if (result.status === 'success') {
+                    bookedSlots = result.data.map(b => {
+                        const [h, m] = b.time.split(':').map(Number);
+                        return h * 60 + m;
+                    });
+                }
+            } catch (err) {
+                console.error("Failed to fetch booked slots", err);
+            }
 
-                options.forEach(opt => {
-                    const [h, m] = opt.dataset.time.split(':').map(Number);
-                    const slotMinutes = h * 60 + m;
-                    if (slotMinutes <= minimumSlotMinutes) {
-                        opt.disabled = true;
-                        opt.classList.add('text-muted');
-                        disabledCount++;
-                        // If this option is currently selected, deselect it
-                        if (opt.selected) {
-                            timeSelect.value = '';
-                        }
-                    } else {
-                        opt.disabled = false;
-                        opt.classList.remove('text-muted');
+            const now = new Date();
+            const currentMinutes = now.getHours() * 60 + now.getMinutes();
+            const minimumSlotMinutes = (selectedDate === today) ? currentMinutes + PREP_TIME_GAP : -1;
+            
+            let disabledCount = 0;
+
+            options.forEach(opt => {
+                const [h, m] = opt.dataset.time.split(':').map(Number);
+                const slotMinutes = h * 60 + m;
+                
+                let isDisabled = false;
+
+                // 1. Check if it's in the past or within prep gap
+                if (slotMinutes <= minimumSlotMinutes) {
+                    isDisabled = true;
+                }
+
+                // 2. Check if it overlaps with any existing booking
+                bookedSlots.forEach(bookedMins => {
+                    if (Math.abs(slotMinutes - bookedMins) < BOOKING_GAP) {
+                        isDisabled = true;
                     }
                 });
 
-                if (disabledCount > 0) {
-                    timeHint.textContent = 'Past time slots and the next 1 hour are disabled to allow driver preparation time.';
+                if (isDisabled) {
+                    opt.disabled = true;
+                    opt.classList.add('text-muted');
+                    disabledCount++;
+                    if (opt.selected) {
+                        timeSelect.value = '';
+                    }
                 } else {
-                    timeHint.textContent = '';
-                }
-            } else {
-                // Future date: enable all slots
-                options.forEach(opt => {
                     opt.disabled = false;
                     opt.classList.remove('text-muted');
-                });
+                }
+            });
+
+            if (disabledCount > 0) {
+                timeHint.textContent = 'Some time slots are disabled to allow for preparation and avoid overlapping bookings.';
+            } else {
                 timeHint.textContent = '';
             }
         }
@@ -1338,6 +1362,7 @@ $selectedVehicle['totalcapacitykg'] = $selectedVehicle['totalcapacitykg'] ?? 0;
                 routeWhileDragging: false,
                 showAlternatives: false,
                 fitSelectedRoutes: true,
+                show: false,
                 lineOptions: {
                     styles: [{
                         color: '#4e73df',
@@ -1434,6 +1459,18 @@ $selectedVehicle['totalcapacitykg'] = $selectedVehicle['totalcapacitykg'] ?? 0;
 
             setupAutocomplete('pickup');
             setupAutocomplete('dropoff');
+
+            // Auto-geocode when user finishes typing and leaves the input
+            document.getElementById('pickup').addEventListener('change', function() {
+                if (this.value.trim().length > 5 && !document.getElementById('pickup_lat').value) {
+                    geocodeAddress(this.value.trim(), 'pickup');
+                }
+            });
+            document.getElementById('dropoff').addEventListener('change', function() {
+                if (this.value.trim().length > 5 && !document.getElementById('dropoff_lat').value) {
+                    geocodeAddress(this.value.trim(), 'dropoff');
+                }
+            });
 
             // Add map control event listeners
             document.getElementById('center-map').addEventListener('click', function () {
