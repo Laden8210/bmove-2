@@ -10,7 +10,12 @@ class CustomerLocationViewer {
         this.updateInterval = 10000; // 10 seconds
         this.intervalId = null;
         this.currentBookingId = null;
-        this.apiBaseUrl = window.location.origin + '/bmove-v2/controller/location';
+        if (window.location.hostname === 'localhost') {
+            this.apiBaseUrl = window.location.origin + '/bmove-v2/controller/location';
+        } else {
+            this.apiBaseUrl = window.location.origin + '/controller/location';
+        }
+        
         this.locationHistory = [];
         
         this.init();
