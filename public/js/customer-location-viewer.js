@@ -177,7 +177,8 @@ class CustomerLocationViewer {
         if (lastUpdateElement) lastUpdateElement.textContent = new Date(location.timestamp).toLocaleString();
         
         if (addressElement && location.latitude && location.longitude) {
-            const url = `${window.location.origin}/bmove-v2/controller/geocoding-proxy.php?action=reverse&lat=${location.latitude}&lng=${location.longitude}`;
+            const url = window.location.origin + '/controller/geocoding-proxy.php?action=reverse&lat=' + location.latitude + '&lng=' + location.longitude; 
+            // const url = `${window.location.origin}/bmove-v2/controller/geocoding-proxy.php?action=reverse&lat=${location.latitude}&lng=${location.longitude}`;
             fetch(url)
                 .then(response => response.json())
                 .then(data => {
