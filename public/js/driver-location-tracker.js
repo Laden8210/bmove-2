@@ -11,7 +11,13 @@ class DriverLocationTracker {
         this.currentBookingId = null;
         this.currentDriverId = null;
         this.lastLocation = null;
-        this.apiBaseUrl = window.location.origin + '/bmove-v2/controller/location';
+
+        // check if localhost or not 
+        if (window.location.hostname === 'localhost') {
+            this.apiBaseUrl = window.location.origin + '/bmove-v2/controller/location';
+        } else {
+            this.apiBaseUrl = window.location.origin + '/controller/location';
+        }
         
         this.init();
     }
